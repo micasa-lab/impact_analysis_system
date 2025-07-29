@@ -484,24 +484,22 @@ LOGGING = {
 - [Dependency Analysis Tools](https://github.com/topics/dependency-analysis)
 - [Impact Assessment Frameworks](https://github.com/topics/impact-analysis)
 
-## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 👥 Authors
 
-- **Your Name** - *Initial work* - [YourGitHub](https://github.com/yourusername)
+- Chiraag Bhatia
 
 ## 🙏 Acknowledgments
 
 - Django community for the excellent web framework
 - D3.js team for powerful visualization capabilities
 - Bootstrap team for responsive UI components
-- All contributors who helped improve this system
+
 
 ## 📞 Support
 
-For support, email your-email@example.com or create an issue in the GitHub repository.
+For support, email absurdcoders@gmail.com or create an issue in the GitHub repository.
 
 ---
 
