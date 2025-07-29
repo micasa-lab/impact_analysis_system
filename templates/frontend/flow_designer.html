@@ -1,0 +1,1428 @@
+{% extends 'frontend/base.html' %}
+
+{% block title %}
+    {% if flow and flow.pk %}
+        Edit {{ flow.name }} - Flow Designer
+    {% else %}
+        Create New Flow - Flow Designer
+    {% endif %}
+{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'frontend:flow_list' %}">Flows</a></li>
+    {% if flow and flow.pk %}
+        <li class="breadcrumb-item"><a href="{% url 'frontend:flow_detail' flow.pk %}">{{ flow.name }}</a></li>
+        <li class="breadcrumb-item active">Designer</li>
+    {% else %}
+        <li class="breadcrumb-item active">Create Flow</li>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1 class="h2 mb-0">
+            <i class="fas fa-drafting-compass me-2 text-primary"></i>
+            {% if flow and flow.pk %}
+                Edit Flow: {{ flow.name }}
+            {% else %}
+                Create New Flow
+            {% endif %}
+        </h1>
+        <p class="text-muted">
+            {% if flow and flow.pk %}
+                {{ flow.description }}
+            {% else %}
+                Design your application flow by selecting and adding components
+            {% endif %}
+        </p>
+    </div>
+    <div class="col-md-4 text-end">
+        <div class="btn-group" role="group">
+            {% if not flow or not flow.pk %}
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createFlowModal">
+                    <i class="fas fa-plus me-1"></i>
+                    Create Flow
+                </button>
+            {% else %}
+                <button type="button" class="btn btn-outline-primary" id="saveFlowBtn">
+                    <i class="fas fa-save me-1"></i>
+                    Save Changes
+                </button>
+                <a href="{% url 'frontend:yaml_export' flow.pk %}" class="btn btn-outline-success">
+                    <i class="fas fa-download me-1"></i>
+                    Export YAML
+                </a>
+                <a href="{% url 'frontend:flow_detail' flow.pk %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-eye me-1"></i>
+                    View Details
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Component Selection Panel -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-plus-circle me-2"></i>
+                    Add Components
+                </h6>
+            </div>
+            <div class="card-body">
+                <!-- Component Selection -->
+                <div class="mb-3">
+                    <label for="componentSelect" class="form-label">Select Component</label>
+                    <select class="form-select" id="componentSelect">
+                        <option value="">Choose a component...</option>
+                        {% for component in available_components %}
+                            <option value="{{ component.id }}" 
+                                    data-name="{{ component.name }}" 
+                                    data-type="{{ component.component_type }}"
+                                    data-function="{{ component.business_function }}">
+                                {{ component.name }} ({{ component.component_type|capfirst }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Position Settings -->
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label for="positionX" class="form-label">X Position</label>
+                        <input type="number" class="form-control" id="positionX" value="100" min="0" max="800">
+                    </div>
+                    <div class="col-6">
+                        <label for="positionY" class="form-label">Y Position</label>
+                        <input type="number" class="form-control" id="positionY" value="100" min="0" max="500">
+                    </div>
+                </div>
+                
+                <!-- Add Button -->
+                <button type="button" class="btn btn-primary w-100" onclick="addSelectedComponent()">
+                    <i class="fas fa-plus me-1"></i>
+                    Add Component to Flow
+                </button>
+                
+                <!-- Quick Add Buttons -->
+                <div class="mt-3">
+                    <small class="text-muted d-block mb-2">Quick Add by Type:</small>
+                    <div class="btn-group-vertical w-100" role="group">
+                        <button type="button" class="btn btn-outline-success btn-sm" onclick="filterAndShowComponents('service')">
+                            <i class="fas fa-server me-1"></i> Services
+                        </button>
+                        <button type="button" class="btn btn-outline-warning btn-sm" onclick="filterAndShowComponents('database')">
+                            <i class="fas fa-database me-1"></i> Databases
+                        </button>
+                        <button type="button" class="btn btn-outline-info btn-sm" onclick="filterAndShowComponents('api')">
+                            <i class="fas fa-plug me-1"></i> APIs
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="filterAndShowComponents('')">
+                            <i class="fas fa-list me-1"></i> Show All
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Connection Creation Panel -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-link me-2"></i>
+                    Create Connections
+                </h6>
+            </div>
+            <div class="card-body">
+                <!-- Source Component -->
+                <div class="mb-3">
+                    <label for="sourceComponentSelect" class="form-label">Source Component</label>
+                    <select class="form-select" id="sourceComponentSelect">
+                        <option value="">Choose source component...</option>
+                    </select>
+                </div>
+                
+                <!-- Target Component -->
+                <div class="mb-3">
+                    <label for="targetComponentSelect" class="form-label">Target Component</label>
+                    <select class="form-select" id="targetComponentSelect">
+                        <option value="">Choose target component...</option>
+                    </select>
+                </div>
+                
+                <!-- Connection Type -->
+                <div class="mb-3">
+                    <label for="connectionTypeSelect" class="form-label">Connection Type</label>
+                    <select class="form-select" id="connectionTypeSelect">
+                        <option value="api_call">API Call</option>
+                        <option value="data_flow">Data Flow</option>
+                        <option value="message_queue">Message Queue</option>
+                        <option value="database_connection">Database Connection</option>
+                        <option value="event_trigger">Event Trigger</option>
+                        <option value="dependency">Dependency</option>
+                    </select>
+                </div>
+                
+                <!-- Connection Description -->
+                <div class="mb-3">
+                    <label for="connectionDescription" class="form-label">Description (Optional)</label>
+                    <textarea class="form-control" id="connectionDescription" rows="2" 
+                              placeholder="Describe the connection..."></textarea>
+                </div>
+                
+                <!-- Create Connection Button -->
+                <button type="button" class="btn btn-success w-100" onclick="createConnection()">
+                    <i class="fas fa-link me-1"></i>
+                    Create Connection
+                </button>
+                
+                <!-- Connection Preview -->
+                <div id="connectionPreview" class="mt-3" style="display: none;">
+                    <div class="alert alert-info">
+                        <strong>Preview:</strong>
+                        <span id="previewText"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Flow Statistics -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Flow Statistics
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span>Components</span>
+                    <span class="badge bg-primary" id="componentCount">0</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span>Connections</span>
+                    <span class="badge bg-info" id="connectionCount">0</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>Complexity</span>
+                    <span class="badge bg-warning" id="complexityScore">Low</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Flow Components List -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-project-diagram me-2"></i>
+                    Flow Components
+                </h6>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-outline-secondary" onclick="arrangeComponents('grid')">
+                        <i class="fas fa-th me-1"></i> Grid
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="arrangeComponents('list')">
+                        <i class="fas fa-list me-1"></i> List
+                    </button>
+                    <button type="button" class="btn btn-outline-danger" onclick="clearAllComponents()">
+                        <i class="fas fa-trash me-1"></i> Clear All
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Components Display Area -->
+                <div id="flowComponentsArea" class="min-height-400">
+                    <!-- Existing Components -->
+                    {% for fc in flow_components %}
+                        <div class="flow-component-item mb-3 p-3 border rounded" 
+                             data-component-id="{{ fc.component.id }}"
+                             data-flow-component-id="{{ fc.id }}">
+                            <div class="row align-items-center">
+                                <div class="col-md-1">
+                                    {% if fc.component.component_type == 'service' %}
+                                        <i class="fas fa-server text-success fa-2x"></i>
+                                    {% elif fc.component.component_type == 'database' %}
+                                        <i class="fas fa-database text-warning fa-2x"></i>
+                                    {% elif fc.component.component_type == 'api' %}
+                                        <i class="fas fa-plug text-purple fa-2x"></i>
+                                    {% elif fc.component.component_type == 'frontend' %}
+                                        <i class="fas fa-desktop text-info fa-2x"></i>
+                                    {% elif fc.component.component_type == 'middleware' %}
+                                        <i class="fas fa-layer-group text-orange fa-2x"></i>
+                                    {% else %}
+                                        <i class="fas fa-cloud text-danger fa-2x"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-7">
+                                    <h6 class="mb-1">{{ fc.component.name }}</h6>
+                                    <p class="text-muted mb-1">{{ fc.component.component_type|capfirst }}</p>
+                                    <small class="text-muted">{{ fc.component.business_function|truncatechars:100 }}</small>
+                                </div>
+                                <div class="col-md-2">
+                                    <small class="text-muted">Position:</small><br>
+                                    <small>X: {{ fc.position_x }}, Y: {{ fc.position_y }}</small>
+                                </div>
+                                <div class="col-md-2 text-end">
+                                    <div class="btn-group-vertical" role="group">
+                                        <button type="button" class="btn btn-outline-primary btn-sm" 
+                                                onclick="editComponentPosition('{{ fc.id }}', {{ fc.position_x }}, {{ fc.position_y }})">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger btn-sm" 
+                                                onclick="removeComponent('{{ fc.id }}', '{{ fc.component.name }}')">
+                                            <i class="fas fa-trash"></i> Remove
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div id="emptyState" class="text-center py-5">
+                            <i class="fas fa-project-diagram fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">No Components Added</h5>
+                            <p class="text-muted">Select a component from the left panel and click "Add Component to Flow" to get started.</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Flow Connections -->
+        <div class="card mt-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-project-diagram me-2"></i>
+                    Flow Connections
+                </h6>
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearAllConnections()">
+                    <i class="fas fa-unlink me-1"></i> Clear All
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="flowConnectionsArea" class="min-height-200">
+                    <!-- Existing Connections -->
+                    {% for conn in connections %}
+                        <div class="connection-item mb-2 p-2 border rounded" 
+                             data-connection-id="{{ conn.id }}">
+                            <div class="row align-items-center">
+                                <div class="col-md-1">
+                                    <i class="fas fa-arrow-right text-primary"></i>
+                                </div>
+                                <div class="col-md-8">
+                                    <strong>{{ conn.source_component.component.name }}</strong>
+                                    <i class="fas fa-arrow-right mx-2 text-muted"></i>
+                                    <strong>{{ conn.target_component.component.name }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ conn.connection_type|capfirst }}</small>
+                                    {% if conn.source %}
+                                        <br><small class="text-muted">{{ conn.source }}</small>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-3 text-end">
+                                    <button type="button" class="btn btn-outline-danger btn-sm" 
+                                            onclick="removeConnection('{{ conn.id }}')">
+                                        <i class="fas fa-trash"></i> Remove
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div id="connectionsEmptyState" class="text-center py-4">
+                            <i class="fas fa-link fa-2x text-muted mb-2"></i>
+                            <h6 class="text-muted">No Connections Created</h6>
+                            <p class="text-muted small">Use the connection panel on the left to create connections between components.</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Flow Modal -->
+{% if not flow or not flow.pk %}
+<div class="modal fade" id="createFlowModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Flow</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createFlowForm">
+                    <div class="mb-3">
+                        <label for="flowName" class="form-label">Flow Name *</label>
+                        <input type="text" class="form-control" id="flowName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="flowDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="flowDescription" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="systemName" class="form-label">System Name</label>
+                        <input type="text" class="form-control" id="systemName">
+                    </div>
+                    <div class="mb-3">
+                        <label for="systemPurpose" class="form-label">System Purpose</label>
+                        <textarea class="form-control" id="systemPurpose" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createFlow()">Create Flow</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Edit Position Modal -->
+<div class="modal fade" id="editPositionModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Component Position</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="editX" class="form-label">X Position</label>
+                    <input type="number" class="form-control" id="editX" min="0" max="800">
+                </div>
+                <div class="mb-3">
+                    <label for="editY" class="form-label">Y Position</label>
+                    <input type="number" class="form-control" id="editY" min="0" max="500">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveComponentPosition()">Save Position</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.min-height-400 {
+    min-height: 400px;
+}
+
+.min-height-200 {
+    min-height: 200px;
+}
+
+.flow-component-item {
+    transition: all 0.3s ease;
+}
+
+.flow-component-item:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.connection-item {
+    transition: all 0.3s ease;
+    background-color: #f8f9fa;
+}
+
+.connection-item:hover {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    background-color: #e9ecef;
+}
+
+.text-purple {
+    color: #6f42c1 !important;
+}
+
+.text-orange {
+    color: #fd7e14 !important;
+}
+
+#flowComponentsArea {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+#flowConnectionsArea {
+    max-height: 400px;
+    overflow-y: auto;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Flow Designer - Dropdown Based Implementation
+let flowComponents = [];
+let flowConnections = [];
+let currentEditingComponent = null;
+
+// Initialize existing components
+{% for fc in flow_components %}
+flowComponents.push({
+    id: '{{ fc.id }}',
+    componentId: '{{ fc.component.id }}',
+    name: '{{ fc.component.name|escapejs }}',
+    type: '{{ fc.component.component_type|escapejs }}',
+    businessFunction: '{{ fc.component.business_function|escapejs }}',
+    x: {{ fc.position_x|default:0 }},
+    y: {{ fc.position_y|default:0 }}
+});
+{% endfor %}
+
+// Initialize existing connections
+{% for conn in connections %}
+flowConnections.push({
+    id: '{{ conn.id }}',
+    sourceComponentId: '{{ conn.source_component.id }}',
+    targetComponentId: '{{ conn.target_component.id }}',
+    sourceComponentName: '{{ conn.source_component.component.name|escapejs }}',
+    targetComponentName: '{{ conn.target_component.component.name|escapejs }}',
+    connectionType: '{{ conn.connection_type|escapejs }}',
+    description: '{{ conn.source|escapejs }}'
+});
+{% endfor %}
+
+// Load Connections via API (fallback mechanism)
+function loadConnectionsViaAPI(flowId) {
+    console.log('Loading connections via API for flow:', flowId);
+    
+    fetch(`/api/v1/connections/?flow=${flowId}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => {
+        console.log('Connections API response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Connections API response:', data);
+        
+        // Extract connections array from paginated response
+        const connections = data.results || data;
+        console.log('Extracted connections array:', connections);
+        
+        if (Array.isArray(connections)) {
+            // Clear existing connections
+            flowConnections = [];
+            
+            // Process each connection
+            connections.forEach(conn => {
+                console.log('Processing connection:', conn);
+                
+                const connectionObj = {
+                    id: conn.id,
+                    sourceComponentId: conn.source_component,           // FlowComponent ID
+                    targetComponentId: conn.target_component,           // FlowComponent ID
+                    sourceComponentName: conn.source_component_name,    // Direct field from serializer
+                    targetComponentName: conn.target_component_name,    // Direct field from serializer
+                    connectionType: conn.connection_type,
+                    description: conn.source || ''                      // Use 'source' field as description
+                };
+                
+                flowConnections.push(connectionObj);
+            });
+            
+            console.log(`Loaded ${connections.length} connections via API`);
+            
+            // Render the connections
+            renderExistingConnections();
+            updateStats();
+        } else {
+            console.error('Expected array of connections, got:', typeof connections);
+        }
+    })
+    .catch(error => {
+        console.error('Error loading connections via API:', error);
+    });
+}
+
+// Add Selected Component
+function addSelectedComponent() {
+    const select = document.getElementById('componentSelect');
+    const selectedOption = select.options[select.selectedIndex];
+    
+    if (!selectedOption.value) {
+        alert('Please select a component first');
+        return;
+    }
+    
+    const componentData = {
+        id: selectedOption.value,
+        name: selectedOption.dataset.name,
+        type: selectedOption.dataset.type,
+        businessFunction: selectedOption.dataset.function || ''
+    };
+    
+    const x = parseInt(document.getElementById('positionX').value) || 100;
+    const y = parseInt(document.getElementById('positionY').value) || 100;
+    
+    // Check if component already exists in flow
+    const exists = flowComponents.find(fc => fc.componentId === componentData.id);
+    if (exists) {
+        alert('This component is already in the flow');
+        return;
+    }
+    
+    addComponentToFlow(componentData, x, y);
+}
+
+// Add Component to Flow
+function addComponentToFlow(componentData, x, y) {
+    console.log('Adding component:', componentData, 'at position:', x, y);
+    
+    {% if flow and flow.pk %}
+    // For existing flows, call API
+    fetch(`/api/v1/flows/{{ flow.pk }}/add_component/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            'component_id': componentData.id,
+            'position_x': x,
+            'position_y': y
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error adding component: ' + data.error);
+        } else {
+            const newComponent = {
+                id: data.id,
+                componentId: componentData.id,
+                name: data.component_name,
+                type: data.component_type,
+                businessFunction: componentData.businessFunction,
+                x: x,
+                y: y
+            };
+            flowComponents.push(newComponent);
+            renderComponent(newComponent);
+            updateStats();
+            resetForm();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to add component');
+    });
+    {% else %}
+    // For new flows, add to local state
+    const newComponent = {
+        id: 'temp_' + Date.now(),
+        componentId: componentData.id,
+        name: componentData.name,
+        type: componentData.type,
+        businessFunction: componentData.businessFunction,
+        x: x,
+        y: y
+    };
+    flowComponents.push(newComponent);
+    renderComponent(newComponent);
+    updateStats();
+    resetForm();
+    {% endif %}
+}
+
+// Render Component in List
+function renderComponent(component) {
+    const area = document.getElementById('flowComponentsArea');
+    
+    // Remove empty state if it exists
+    const emptyState = document.getElementById('emptyState');
+    if (emptyState) {
+        emptyState.remove();
+    }
+    
+    const componentDiv = document.createElement('div');
+    componentDiv.className = 'flow-component-item mb-3 p-3 border rounded';
+    componentDiv.dataset.componentId = component.componentId;
+    componentDiv.dataset.flowComponentId = component.id;
+    
+    const iconClass = getComponentIcon(component.type);
+    
+    componentDiv.innerHTML = `
+        <div class="row align-items-center">
+            <div class="col-md-1">
+                <i class="${iconClass} fa-2x"></i>
+            </div>
+            <div class="col-md-7">
+                <h6 class="mb-1">${component.name}</h6>
+                <p class="text-muted mb-1">${component.type.charAt(0).toUpperCase() + component.type.slice(1)}</p>
+                <small class="text-muted">${component.businessFunction.substring(0, 100)}${component.businessFunction.length > 100 ? '...' : ''}</small>
+            </div>
+            <div class="col-md-2">
+                <small class="text-muted">Position:</small><br>
+                <small>X: ${component.x}, Y: ${component.y}</small>
+            </div>
+            <div class="col-md-2 text-end">
+                <div class="btn-group-vertical" role="group">
+                    <button type="button" class="btn btn-outline-primary btn-sm" 
+                            onclick="editComponentPosition('${component.id}', ${component.x}, ${component.y})">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm" 
+                            onclick="removeComponent('${component.id}', '${component.name}')">
+                        <i class="fas fa-trash"></i> Remove
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    area.appendChild(componentDiv);
+    
+    // Update connection dropdowns when a new component is added
+    updateConnectionDropdowns();
+}
+
+// Get Component Icon
+function getComponentIcon(type) {
+    const icons = {
+        'service': 'fas fa-server text-success',
+        'database': 'fas fa-database text-warning',
+        'api': 'fas fa-plug text-purple',
+        'frontend': 'fas fa-desktop text-info',
+        'middleware': 'fas fa-layer-group text-orange',
+        'external': 'fas fa-cloud text-danger'
+    };
+    return icons[type] || 'fas fa-cube text-secondary';
+}
+
+// Filter Components by Type
+function filterAndShowComponents(type) {
+    const select = document.getElementById('componentSelect');
+    const options = select.options;
+    
+    for (let i = 1; i < options.length; i++) { // Skip first option
+        const option = options[i];
+        if (type === '' || option.dataset.type === type) {
+            option.style.display = 'block';
+        } else {
+            option.style.display = 'none';
+        }
+    }
+    
+    // Reset selection
+    select.selectedIndex = 0;
+}
+
+// Edit Component Position
+function editComponentPosition(componentId, currentX, currentY) {
+    currentEditingComponent = componentId;
+    document.getElementById('editX').value = currentX;
+    document.getElementById('editY').value = currentY;
+    
+    const modal = new bootstrap.Modal(document.getElementById('editPositionModal'));
+    modal.show();
+}
+
+// Save Component Position
+function saveComponentPosition() {
+    if (!currentEditingComponent) return;
+    
+    const newX = parseInt(document.getElementById('editX').value);
+    const newY = parseInt(document.getElementById('editY').value);
+    
+    // Update local state
+    const component = flowComponents.find(fc => fc.id === currentEditingComponent);
+    if (component) {
+        component.x = newX;
+        component.y = newY;
+        
+        // Update display
+        const componentDiv = document.querySelector(`[data-flow-component-id="${currentEditingComponent}"]`);
+        if (componentDiv) {
+            const positionSpan = componentDiv.querySelector('small');
+            positionSpan.innerHTML = `X: ${newX}, Y: ${newY}`;
+        }
+    }
+    
+    // Close modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('editPositionModal'));
+    modal.hide();
+    
+    currentEditingComponent = null;
+}
+
+// ========== CONNECTION MANAGEMENT ==========
+
+// Create Connection
+function createConnection() {
+    const sourceSelect = document.getElementById('sourceComponentSelect');
+    const targetSelect = document.getElementById('targetComponentSelect');
+    const typeSelect = document.getElementById('connectionTypeSelect');
+    const description = document.getElementById('connectionDescription').value;
+    
+    const sourceComponentId = sourceSelect.value;
+    const targetComponentId = targetSelect.value;
+    const connectionType = typeSelect.value;
+    
+    if (!sourceComponentId || !targetComponentId) {
+        alert('Please select both source and target components');
+        return;
+    }
+    
+    if (sourceComponentId === targetComponentId) {
+        alert('Source and target components cannot be the same');
+        return;
+    }
+    
+    // Check if connection already exists
+    const exists = flowConnections.find(conn => 
+        conn.sourceComponentId === sourceComponentId && 
+        conn.targetComponentId === targetComponentId &&
+        conn.connectionType === connectionType
+    );
+    
+    if (exists) {
+        alert('This connection already exists');
+        return;
+    }
+    
+    const sourceComponent = flowComponents.find(fc => fc.componentId === sourceComponentId);
+    const targetComponent = flowComponents.find(fc => fc.componentId === targetComponentId);
+    
+    const connectionData = {
+        sourceComponentId: sourceComponentId,
+        targetComponentId: targetComponentId,
+        sourceComponentName: sourceComponent.name,
+        targetComponentName: targetComponent.name,
+        connectionType: connectionType,
+        description: description
+    };
+    
+    {% if flow and flow.pk %}
+    // For existing flows, call API
+    fetch(`/api/v1/flows/{{ flow.pk }}/add_connection/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            'source_component_id': sourceComponentId,
+            'target_component_id': targetComponentId,
+            'connection_type': connectionType,
+            'description': description
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error creating connection: ' + data.error);
+        } else {
+            const newConnection = {
+                id: data.id,
+                sourceComponentId: sourceComponentId,
+                targetComponentId: targetComponentId,
+                sourceComponentName: sourceComponent.name,
+                targetComponentName: targetComponent.name,
+                connectionType: connectionType,
+                description: description
+            };
+            flowConnections.push(newConnection);
+            renderConnection(newConnection);
+            updateStats();
+            resetConnectionForm();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to create connection');
+    });
+    {% else %}
+    // For new flows, add to local state
+    const newConnection = {
+        id: 'temp_conn_' + Date.now(),
+        sourceComponentId: sourceComponentId,
+        targetComponentId: targetComponentId,
+        sourceComponentName: sourceComponent.name,
+        targetComponentName: targetComponent.name,
+        connectionType: connectionType,
+        description: description
+    };
+    flowConnections.push(newConnection);
+    renderConnection(newConnection);
+    updateStats();
+    resetConnectionForm();
+    {% endif %}
+}
+
+// Render Connection in List
+function renderConnection(connection) {
+    const area = document.getElementById('flowConnectionsArea');
+    
+    // Remove empty state if it exists
+    const emptyState = document.getElementById('connectionsEmptyState');
+    if (emptyState) {
+        emptyState.remove();
+    }
+    
+    const connectionDiv = document.createElement('div');
+    connectionDiv.className = 'connection-item mb-2 p-2 border rounded';
+    connectionDiv.dataset.connectionId = connection.id;
+    
+    connectionDiv.innerHTML = `
+        <div class="row align-items-center">
+            <div class="col-md-1">
+                <i class="fas fa-arrow-right text-primary"></i>
+            </div>
+            <div class="col-md-8">
+                <strong>${connection.sourceComponentName}</strong>
+                <i class="fas fa-arrow-right mx-2 text-muted"></i>
+                <strong>${connection.targetComponentName}</strong>
+                <br>
+                <small class="text-muted">${connection.connectionType.charAt(0).toUpperCase() + connection.connectionType.slice(1).replace('_', ' ')}</small>
+                ${connection.description ? '<br><small class="text-muted">' + connection.description + '</small>' : ''}
+            </div>
+            <div class="col-md-3 text-end">
+                <button type="button" class="btn btn-outline-danger btn-sm" 
+                        onclick="removeConnection('${connection.id}')">
+                    <i class="fas fa-trash"></i> Remove
+                </button>
+            </div>
+        </div>
+    `;
+    
+    area.appendChild(connectionDiv);
+}
+
+// Render Existing Connections
+function renderExistingConnections() {
+    console.log('Rendering existing connections:', flowConnections.length);
+    
+    // Clear the connections area first (remove template-rendered connections if they failed)
+    const area = document.getElementById('flowConnectionsArea');
+    if (area) {
+        // Remove all existing connection items but keep empty state if no connections
+        const existingItems = area.querySelectorAll('.connection-item');
+        existingItems.forEach(item => item.remove());
+        
+        // If we have connections, render them
+        if (flowConnections.length > 0) {
+            // Remove empty state
+            const emptyState = document.getElementById('connectionsEmptyState');
+            if (emptyState) {
+                emptyState.remove();
+            }
+            
+            // Render each connection
+            flowConnections.forEach(connection => {
+                renderConnection(connection);
+            });
+        } else {
+            // Show empty state if no connections
+            if (!document.getElementById('connectionsEmptyState')) {
+                area.innerHTML = `
+                    <div id="connectionsEmptyState" class="text-center py-4">
+                        <i class="fas fa-link fa-2x text-muted mb-2"></i>
+                        <h6 class="text-muted">No Connections Created</h6>
+                        <p class="text-muted small">Use the connection panel on the left to create connections between components.</p>
+                    </div>
+                `;
+            }
+        }
+    }
+}
+
+// Remove Connection
+function removeConnection(connectionId) {
+    const connection = flowConnections.find(conn => conn.id === connectionId);
+    if (!connection) return;
+    
+    if (!confirm(`Are you sure you want to remove the connection from "${connection.sourceComponentName}" to "${connection.targetComponentName}"?`)) {
+        return;
+    }
+    
+    {% if flow and flow.pk %}
+    // For existing flows, call API to remove
+    fetch(`/api/v1/flows/{{ flow.pk }}/remove_connection/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            'connection_id': connectionId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error removing connection: ' + data.error);
+        } else {
+            removeConnectionFromDOM(connectionId);
+            updateStats();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to remove connection');
+    });
+    {% else %}
+    // For new flows, just remove from local state
+    removeConnectionFromDOM(connectionId);
+    updateStats();
+    {% endif %}
+}
+
+// Remove Connection from DOM and Local State
+function removeConnectionFromDOM(connectionId) {
+    // Remove from local state
+    flowConnections = flowConnections.filter(conn => conn.id !== connectionId);
+    
+    // Remove from DOM
+    const connectionDiv = document.querySelector(`[data-connection-id="${connectionId}"]`);
+    if (connectionDiv) {
+        connectionDiv.remove();
+    }
+    
+    // Show empty state if no connections
+    if (flowConnections.length === 0) {
+        showConnectionsEmptyState();
+    }
+}
+
+// Show Connections Empty State
+function showConnectionsEmptyState() {
+    const area = document.getElementById('flowConnectionsArea');
+    area.innerHTML = `
+        <div id="connectionsEmptyState" class="text-center py-4">
+            <i class="fas fa-link fa-2x text-muted mb-2"></i>
+            <h6 class="text-muted">No Connections Created</h6>
+            <p class="text-muted small">Use the connection panel on the left to create connections between components.</p>
+        </div>
+    `;
+}
+
+// Clear All Connections
+function clearAllConnections() {
+    if (flowConnections.length === 0) {
+        alert('No connections to clear');
+        return;
+    }
+    
+    if (!confirm('Are you sure you want to remove all connections from this flow?')) {
+        return;
+    }
+    
+    flowConnections = [];
+    showConnectionsEmptyState();
+    updateStats();
+}
+
+// Update Component Dropdowns for Connections
+function updateConnectionDropdowns() {
+    const sourceSelect = document.getElementById('sourceComponentSelect');
+    const targetSelect = document.getElementById('targetComponentSelect');
+    
+    // Clear existing options except the first one
+    while (sourceSelect.options.length > 1) {
+        sourceSelect.remove(1);
+    }
+    while (targetSelect.options.length > 1) {
+        targetSelect.remove(1);
+    }
+    
+    // Add current flow components to both dropdowns
+    flowComponents.forEach(component => {
+        const sourceOption = document.createElement('option');
+        sourceOption.value = component.componentId;
+        sourceOption.textContent = component.name;
+        sourceSelect.appendChild(sourceOption);
+        
+        const targetOption = document.createElement('option');
+        targetOption.value = component.componentId;
+        targetOption.textContent = component.name;
+        targetSelect.appendChild(targetOption);
+    });
+}
+
+// Reset Connection Form
+function resetConnectionForm() {
+    document.getElementById('sourceComponentSelect').selectedIndex = 0;
+    document.getElementById('targetComponentSelect').selectedIndex = 0;
+    document.getElementById('connectionTypeSelect').selectedIndex = 0;
+    document.getElementById('connectionDescription').value = '';
+    hideConnectionPreview();
+}
+
+// Show Connection Preview
+function showConnectionPreview() {
+    const sourceSelect = document.getElementById('sourceComponentSelect');
+    const targetSelect = document.getElementById('targetComponentSelect');
+    const typeSelect = document.getElementById('connectionTypeSelect');
+    
+    if (sourceSelect.value && targetSelect.value && sourceSelect.value !== targetSelect.value) {
+        const sourceText = sourceSelect.options[sourceSelect.selectedIndex].text;
+        const targetText = targetSelect.options[targetSelect.selectedIndex].text;
+        const typeText = typeSelect.options[typeSelect.selectedIndex].text;
+        
+        const previewText = `${sourceText} → ${targetText} (${typeText})`;
+        document.getElementById('previewText').textContent = previewText;
+        document.getElementById('connectionPreview').style.display = 'block';
+    } else {
+        hideConnectionPreview();
+    }
+}
+
+// Hide Connection Preview
+function hideConnectionPreview() {
+    document.getElementById('connectionPreview').style.display = 'none';
+}
+
+
+// Remove Component
+function removeComponent(componentId, componentName) {
+    if (!confirm(`Are you sure you want to remove "${componentName}" from this flow?`)) {
+        return;
+    }
+    
+    {% if flow and flow.pk %}
+    // For existing flows, call API to remove
+    fetch(`/api/v1/flows/{{ flow.pk }}/remove_component/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            'flow_component_id': componentId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error removing component: ' + data.error);
+        } else {
+            removeComponentFromDOM(componentId);
+            updateStats();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to remove component');
+    });
+    {% else %}
+    // For new flows, just remove from local state
+    removeComponentFromDOM(componentId);
+    updateStats();
+    {% endif %}
+}
+
+// Remove Component from DOM and Local State
+function removeComponentFromDOM(componentId) {
+    // Remove from local state
+    flowComponents = flowComponents.filter(fc => fc.id !== componentId);
+    
+    // Remove from DOM
+    const componentDiv = document.querySelector(`[data-flow-component-id="${componentId}"]`);
+    if (componentDiv) {
+        componentDiv.remove();
+    }
+    
+    // Show empty state if no components
+    if (flowComponents.length === 0) {
+        showEmptyState();
+    }
+}
+
+// Show Empty State
+function showEmptyState() {
+    const area = document.getElementById('flowComponentsArea');
+    area.innerHTML = `
+        <div id="emptyState" class="text-center py-5">
+            <i class="fas fa-project-diagram fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No Components Added</h5>
+            <p class="text-muted">Select a component from the left panel and click "Add Component to Flow" to get started.</p>
+        </div>
+    `;
+}
+
+// Clear All Components
+function clearAllComponents() {
+    if (flowComponents.length === 0) {
+        alert('No components to clear');
+        return;
+    }
+    
+    if (!confirm('Are you sure you want to remove all components from this flow?')) {
+        return;
+    }
+    
+    flowComponents = [];
+    showEmptyState();
+    updateStats();
+}
+
+// Arrange Components
+function arrangeComponents(layout) {
+    if (layout === 'grid') {
+        // Auto-arrange in grid pattern
+        flowComponents.forEach((component, index) => {
+            const col = index % 4;
+            const row = Math.floor(index / 4);
+            component.x = 50 + (col * 180);
+            component.y = 50 + (row * 120);
+        });
+        
+        // Re-render all components
+        const area = document.getElementById('flowComponentsArea');
+        area.innerHTML = '';
+        flowComponents.forEach(component => renderComponent(component));
+        
+        if (flowComponents.length === 0) {
+            showEmptyState();
+        }
+    }
+}
+
+// Reset Form
+function resetForm() {
+    document.getElementById('componentSelect').selectedIndex = 0;
+    document.getElementById('positionX').value = Math.floor(Math.random() * 600) + 100;
+    document.getElementById('positionY').value = Math.floor(Math.random() * 400) + 100;
+}
+
+// Update Statistics
+function updateStats() {
+    document.getElementById('componentCount').textContent = flowComponents.length;
+    document.getElementById('connectionCount').textContent = flowConnections.length;
+    
+    // Calculate complexity
+    let complexity = 'Low';
+    const totalElements = flowComponents.length + flowConnections.length;
+    if (totalElements > 15) complexity = 'High';
+    else if (totalElements > 8) complexity = 'Medium';
+    
+    document.getElementById('complexityScore').textContent = complexity;
+}
+
+// Create Flow
+function createFlow() {
+    console.log('createFlow function called');
+    console.log('flowComponents:', flowComponents);
+    console.log('flowConnections:', flowConnections);
+    
+    // Log each component to see the data structure
+    flowComponents.forEach((comp, index) => {
+        console.log(`Component ${index}:`, comp);
+        console.log(`  - id: ${comp.id} (type: ${typeof comp.id})`);
+        console.log(`  - componentId: ${comp.componentId} (type: ${typeof comp.componentId})`);
+    });
+    
+    const formData = {
+        name: document.getElementById('flowName').value,
+        description: document.getElementById('flowDescription').value,
+        system_name: document.getElementById('systemName').value,
+        system_purpose: document.getElementById('systemPurpose').value,
+        components: flowComponents,
+        connections: flowConnections
+    };
+    
+    console.log('Form data:', formData);
+    
+    if (!formData.name.trim()) {
+        alert('Please enter a flow name');
+        return;
+    }
+    
+    fetch('/api/flows/create/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('API response:', data);
+        if (data.success) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('createFlowModal'));
+            if (modal) {
+                modal.hide();
+            }
+            
+            // Redirect to edit the newly created flow
+            window.location.href = `/flows/${data.flow_id}/designer/`;
+        } else {
+            alert('Error creating flow: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error creating flow: ' + error.message);
+    });
+}
+
+// Ensure createFlow is globally accessible
+window.createFlow = createFlow;
+
+// Debug function availability
+console.log('createFlow function defined:', typeof createFlow);
+console.log('window.createFlow defined:', typeof window.createFlow);
+
+// Get CSRF Token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Page loaded, initializing flow designer...');
+    
+    // Load available components
+    loadAvailableComponents();
+    
+    // Handle existing connections for existing flows
+    {% if flow and flow.pk %}
+    console.log('Template connections count:', flowConnections.length);
+    console.log('Template connections data:', flowConnections);
+    console.log('Existing flow detected, flow ID:', '{{ flow.pk }}');
+    
+    // Try template connections first, fallback to API if needed
+    if (flowConnections.length > 0) {
+        console.log('Using template connections');
+        renderExistingConnections();
+    } else {
+        console.log('No template connections found, trying API fallback');
+        loadConnectionsViaAPI('{{ flow.pk }}');
+    }
+    {% endif %}
+    
+    updateStats();
+    resetForm();
+    updateConnectionDropdowns();
+    
+    // Add event listeners for connection preview
+    document.getElementById('sourceComponentSelect').addEventListener('change', showConnectionPreview);
+    document.getElementById('targetComponentSelect').addEventListener('change', showConnectionPreview);
+    document.getElementById('connectionTypeSelect').addEventListener('change', showConnectionPreview);
+    
+    {% if flow and flow.pk %}
+    // Save flow button
+    const saveBtn = document.getElementById('saveFlowBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            alert('Flow changes saved successfully!');
+        });
+    }
+    {% endif %}
+});
+
+// Load Available Components
+function loadAvailableComponents() {
+    console.log('Loading available components...');
+    
+    fetch('/api/v1/components/?is_active=true', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        console.log('Components API response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Components data received:', data);
+        // The API returns an object with 'results' array for paginated responses
+        const components = data.results || data;
+        if (Array.isArray(components)) {
+            populateComponentDropdown(components);
+        } else {
+            console.error('Expected array of components, got:', typeof components);
+            checkTemplateComponents();
+        }
+    })
+    .catch(error => {
+        console.error('Error loading components:', error);
+        // Fallback: try to use template-rendered components
+        console.log('Falling back to template-rendered components');
+        checkTemplateComponents();
+    });
+}
+
+// Populate Component Dropdown
+function populateComponentDropdown(components) {
+    console.log('Populating dropdown with', components.length, 'components');
+    
+    const select = document.getElementById('componentSelect');
+    if (!select) {
+        console.error('Component select element not found');
+        return;
+    }
+    
+    // Clear existing options except the first one
+    while (select.options.length > 1) {
+        select.remove(1);
+    }
+    
+    // Add components to dropdown
+    components.forEach(component => {
+        const option = document.createElement('option');
+        option.value = component.id;
+        option.dataset.name = component.name;
+        option.dataset.type = component.component_type;
+        option.dataset.function = component.business_function || '';
+        option.textContent = `${component.name} (${component.component_type.charAt(0).toUpperCase() + component.component_type.slice(1)})`;
+        select.appendChild(option);
+    });
+    
+    console.log('Dropdown populated with', select.options.length - 1, 'components');
+    
+    // Also update connection dropdowns if components are already in the flow
+    updateConnectionDropdowns();
+}
+
+// Check if template has rendered components (fallback)
+function checkTemplateComponents() {
+    console.log('Checking template-rendered components...');
+    
+    const select = document.getElementById('componentSelect');
+    const optionCount = select.options.length - 1; // Exclude the first "Choose..." option
+    
+    console.log('Template-rendered options count:', optionCount);
+    
+    if (optionCount === 0) {
+        console.warn('No components found in template or API');
+        select.innerHTML = '<option value="">No components available</option>';
+    }
+}
+</script>
+{% endblock %}

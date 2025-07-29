@@ -1,0 +1,607 @@
+{% extends 'frontend/base.html' %}
+
+{% block title %}YAML/JSON Import - Impact Analysis System{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item active">YAML/JSON Import</li>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1 class="h2 mb-0">
+            <i class="fas fa-file-import me-2 text-primary"></i>
+            YAML/JSON Import
+        </h1>
+        <p class="text-muted">Import application flows and components from YAML or JSON files</p>
+    </div>
+</div>
+
+<!-- Format Selection Tabs -->
+<div class="row mb-3">
+    <div class="col-12">
+        <ul class="nav nav-tabs" id="importTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="yaml-tab" data-bs-toggle="tab" data-bs-target="#yaml-import" type="button" role="tab">
+                    <i class="fas fa-file-code me-1"></i>
+                    YAML Import
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="json-tab" data-bs-toggle="tab" data-bs-target="#json-import" type="button" role="tab">
+                    <i class="fas fa-file-code me-1"></i>
+                    JSON Import
+                </button>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="tab-content" id="importTabContent">
+    <!-- YAML Import Tab -->
+    <div class="tab-pane fade show active" id="yaml-import" role="tabpanel">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-upload me-2"></i>
+                            Import YAML File
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="yamlImportForm" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label for="yamlFile" class="form-label">Select YAML File</label>
+                                <input type="file" class="form-control" id="yamlFile" name="yaml_file" accept=".yaml,.yml" required>
+                                <div class="form-text">Upload a YAML file containing flow definitions</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="validateOnly" name="validate_only">
+                                    <label class="form-check-label" for="validateOnly">
+                                        Validate only (don't import)
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload me-1"></i>
+                                Import YAML
+                            </button>
+                    <button type="button" class="btn btn-outline-secondary" id="clearForm">
+                        <i class="fas fa-times me-1"></i>
+                        Clear
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- YAML Editor -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-code me-2"></i>
+                    YAML Editor
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="yamlContent" class="form-label">YAML Content</label>
+                    <textarea id="yamlContent" name="yaml_content" class="form-control yaml-editor" rows="20" 
+                              placeholder="Paste your YAML content here or upload a file above..."></textarea>
+                </div>
+                
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-success" id="validateYaml">
+                        <i class="fas fa-check me-1"></i>
+                        Validate YAML
+                    </button>
+                    <button type="button" class="btn btn-primary" id="importFromEditor">
+                        <i class="fas fa-download me-1"></i>
+                        Import from Editor
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="clearEditor">
+                        <i class="fas fa-eraser me-1"></i>
+                        Clear Editor
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- JSON Import Tab -->
+    <div class="tab-pane fade" id="json-import" role="tabpanel">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-upload me-2"></i>
+                            Import JSON File
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="jsonImportForm" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label for="jsonFile" class="form-label">Select JSON File</label>
+                                <input type="file" class="form-control" id="jsonFile" name="json_file" accept=".json" required>
+                                <div class="form-text">Upload a JSON file containing system definitions</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="validateOnlyJson" name="validate_only">
+                                    <label class="form-check-label" for="validateOnlyJson">
+                                        Validate only (don't import)
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload me-1"></i>
+                                Import JSON
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="clearJsonForm">
+                                <i class="fas fa-times me-1"></i>
+                                Clear
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- JSON Editor -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-code me-2"></i>
+                            JSON Editor
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="jsonContent" class="form-label">JSON Content</label>
+                            <textarea id="jsonContent" name="json_content" class="form-control json-editor" rows="20" 
+                                      placeholder="Paste your JSON content here or upload a file above..."></textarea>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-success" id="validateJson">
+                                <i class="fas fa-check me-1"></i>
+                                Validate JSON
+                            </button>
+                            <button type="button" class="btn btn-primary" id="importFromJsonEditor">
+                                <i class="fas fa-download me-1"></i>
+                                Import from Editor
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="clearJsonEditor">
+                                <i class="fas fa-eraser me-1"></i>
+                                Clear Editor
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <!-- JSON Format Guide -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-book me-2"></i>
+                            JSON Format Guide
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="accordion" id="jsonFormatGuide">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#jsonBasicStructure">
+                                        Basic Structure
+                                    </button>
+                                </h2>
+                                <div id="jsonBasicStructure" class="accordion-collapse collapse" data-bs-parent="#jsonFormatGuide">
+                                    <div class="accordion-body">
+                                        <pre><code>{
+  "system_name": "System Name",
+  "system_purpose": "Purpose description",
+  "components": []
+}</code></pre>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#jsonComponentFormat">
+                                        Component Format
+                                    </button>
+                                </h2>
+                                <div id="jsonComponentFormat" class="accordion-collapse collapse" data-bs-parent="#jsonFormatGuide">
+                                    <div class="accordion-body">
+                                        <pre><code>{
+  "component_name": "Component Name",
+  "business_function": "Description",
+  "owned_by": "Team Name",
+  "kpis": ["KPI1", "KPI2"],
+  "flows": []
+}</code></pre>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#jsonFlowFormat">
+                                        Flow Format
+                                    </button>
+                                </h2>
+                                <div id="jsonFlowFormat" class="accordion-collapse collapse" data-bs-parent="#jsonFormatGuide">
+                                    <div class="accordion-body">
+                                        <pre><code>{
+  "type": "internal|external_user_triggered",
+  "source": "Source description",
+  "target": "Target component",
+  "description": "Flow description"
+}</code></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <a href="#" class="btn btn-outline-info btn-sm w-100" id="loadJsonSample">
+                                <i class="fas fa-file-alt me-1"></i>
+                                Load Sample JSON
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <!-- Import Status (shared between tabs) -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Import Status
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="importStatus" class="text-muted">
+                    <i class="fas fa-clock me-1"></i>
+                    Ready to import
+                </div>
+                
+                <div id="importProgress" class="mt-3" style="display: none;">
+                    <div class="progress">
+                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div id="importResults" class="mt-3" style="display: none;">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <!-- YAML Format Guide (moved here for shared space) -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-book me-2"></i>
+                    YAML Format Guide
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="formatGuide">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#basicStructure">
+                                Basic Structure
+                            </button>
+                        </h2>
+                        <div id="basicStructure" class="accordion-collapse collapse" data-bs-parent="#formatGuide">
+                            <div class="accordion-body">
+                                <pre><code>name: "Flow Name"
+description: "Description"
+version: "1.0"
+components: []
+connections: []</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#componentFormat">
+                                Component Format
+                            </button>
+                        </h2>
+                        <div id="componentFormat" class="accordion-collapse collapse" data-bs-parent="#formatGuide">
+                            <div class="accordion-body">
+                                <pre><code>- name: "Component Name"
+  type: "service|database|api|frontend|middleware|external_service"
+  business_function: "Description"
+  is_active: true
+  runbooks: []</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#connectionFormat">
+                                Connection Format
+                            </button>
+                        </h2>
+                        <div id="connectionFormat" class="accordion-collapse collapse" data-bs-parent="#formatGuide">
+                            <div class="accordion-body">
+                                <pre><code>- source: "Source Component"
+  target: "Target Component"
+  type: "http_request|database_connection|api_call|service_call"
+  description: "Connection description"</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <a href="#" class="btn btn-outline-info btn-sm w-100" id="loadSample">
+                        <i class="fas fa-file-alt me-1"></i>
+                        Load Sample YAML
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize CodeMirror for YAML editing
+    let yamlEditor;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize YAML editor
+        yamlEditor = CodeMirror.fromTextArea(document.getElementById('yamlContent'), {
+            mode: 'yaml',
+            theme: 'monokai',
+            lineNumbers: true,
+            lineWrapping: true,
+            autoCloseBrackets: true,
+            matchBrackets: true,
+            indentUnit: 2,
+            tabSize: 2
+        });
+        
+        // File upload handler
+        document.getElementById('yamlFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    yamlEditor.setValue(e.target.result);
+                    updateStatus('File loaded successfully', 'success');
+                };
+                reader.readAsText(file);
+            }
+        });
+        
+        // Form submission
+        document.getElementById('yamlImportForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const yamlContent = yamlEditor.getValue();
+            const validateOnly = document.getElementById('validateOnly').checked;
+            
+            if (!yamlContent.trim()) {
+                updateStatus('Please provide YAML content', 'error');
+                return;
+            }
+            
+            formData.append('yaml_content', yamlContent);
+            formData.append('validate_only', validateOnly);
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            
+            importYAML(formData, validateOnly);
+        });
+        
+        // Validate YAML button
+        document.getElementById('validateYaml').addEventListener('click', function() {
+            const yamlContent = yamlEditor.getValue();
+            if (!yamlContent.trim()) {
+                updateStatus('Please provide YAML content', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('yaml_content', yamlContent);
+            formData.append('validate_only', true);
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            
+            importYAML(formData, true);
+        });
+        
+        // Import from editor button
+        document.getElementById('importFromEditor').addEventListener('click', function() {
+            const yamlContent = yamlEditor.getValue();
+            if (!yamlContent.trim()) {
+                updateStatus('Please provide YAML content', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('yaml_content', yamlContent);
+            formData.append('validate_only', false);
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            
+            importYAML(formData, false);
+        });
+        
+        // Clear buttons
+        document.getElementById('clearForm').addEventListener('click', function() {
+            document.getElementById('yamlFile').value = '';
+            document.getElementById('validateOnly').checked = false;
+            updateStatus('Ready to import', 'info');
+        });
+        
+        document.getElementById('clearEditor').addEventListener('click', function() {
+            yamlEditor.setValue('');
+            updateStatus('Editor cleared', 'info');
+        });
+        
+        // Load sample YAML
+        document.getElementById('loadSample').addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const sampleYAML = `name: "Sample E-commerce Flow"
+description: "Sample e-commerce application architecture"
+version: "1.0"
+
+components:
+  - name: "Frontend App"
+    type: "frontend"
+    business_function: "User interface for customers"
+    is_active: true
+    
+  - name: "API Gateway"
+    type: "api"
+    business_function: "Central API entry point"
+    is_active: true
+    
+  - name: "User Service"
+    type: "service"
+    business_function: "User management and authentication"
+    is_active: true
+    
+  - name: "User Database"
+    type: "database"
+    business_function: "Stores user data"
+    is_active: true
+
+connections:
+  - source: "Frontend App"
+    target: "API Gateway"
+    type: "http_request"
+    description: "Frontend API calls"
+    
+  - source: "API Gateway"
+    target: "User Service"
+    type: "http_request"
+    description: "Route user requests"
+    
+  - source: "User Service"
+    target: "User Database"
+    type: "database_connection"
+    description: "User data access"`;
+            
+            yamlEditor.setValue(sampleYAML);
+            updateStatus('Sample YAML loaded', 'success');
+        });
+    });
+    
+    function importYAML(formData, validateOnly) {
+        showProgress();
+        updateStatus(validateOnly ? 'Validating YAML...' : 'Importing YAML...', 'info');
+        
+        fetch('/api/v1/yaml/import/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideProgress();
+            
+            if (data.error) {
+                updateStatus('Error: ' + data.error, 'error');
+                showResults(data, false);
+            } else {
+                const message = validateOnly ? 'YAML validation successful' : 'YAML import successful';
+                updateStatus(message, 'success');
+                showResults(data, true);
+            }
+        })
+        .catch(error => {
+            hideProgress();
+            updateStatus('Network error: ' + error.message, 'error');
+            console.error('Error:', error);
+        });
+    }
+    
+    function updateStatus(message, type) {
+        const statusDiv = document.getElementById('importStatus');
+        const iconClass = {
+            'info': 'fas fa-info-circle',
+            'success': 'fas fa-check-circle',
+            'error': 'fas fa-exclamation-circle',
+            'warning': 'fas fa-exclamation-triangle'
+        }[type] || 'fas fa-info-circle';
+        
+        const textClass = {
+            'info': 'text-info',
+            'success': 'text-success',
+            'error': 'text-danger',
+            'warning': 'text-warning'
+        }[type] || 'text-muted';
+        
+        statusDiv.innerHTML = `<i class="${iconClass} me-1"></i>${message}`;
+        statusDiv.className = textClass;
+    }
+    
+    function showProgress() {
+        document.getElementById('importProgress').style.display = 'block';
+        const progressBar = document.querySelector('.progress-bar');
+        progressBar.style.width = '50%';
+        progressBar.classList.add('progress-bar-animated');
+    }
+    
+    function hideProgress() {
+        document.getElementById('importProgress').style.display = 'none';
+        const progressBar = document.querySelector('.progress-bar');
+        progressBar.classList.remove('progress-bar-animated');
+    }
+    
+    function showResults(data, success) {
+        const resultsDiv = document.getElementById('importResults');
+        
+        if (success && data.summary) {
+            resultsDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <h6>Import Summary</h6>
+                    <ul class="mb-0">
+                        <li>Components: ${data.summary.components_created || 0} created</li>
+                        <li>Runbooks: ${data.summary.runbooks_created || 0} created</li>
+                        <li>Flows: ${data.summary.flows_created || 0} created</li>
+                        <li>Connections: ${data.summary.connections_created || 0} created</li>
+                    </ul>
+                </div>
+            `;
+        } else if (data.errors) {
+            resultsDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <h6>Validation Errors</h6>
+                    <ul class="mb-0">
+                        ${data.errors.map(error => `<li>${error}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+        
+        resultsDiv.style.display = 'block';
+    }
+</script>
+{% endblock %}
+

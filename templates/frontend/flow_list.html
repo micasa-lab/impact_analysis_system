@@ -1,0 +1,656 @@
+{% extends 'frontend/base.html' %}
+
+{% block title %}Flows - Impact Analysis System{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item active">Flows</li>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1 class="h2 mb-0">
+            <i class="fas fa-project-diagram me-2 text-primary"></i>
+            Application Flows
+        </h1>
+        <p class="text-muted">Manage and visualize application architectures and component relationships</p>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="/flows/designer/" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i>
+            Create Flow
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label for="statusFilter" class="form-label">Status</label>
+                <select class="form-select" id="statusFilter">
+                    <option value="">All</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="versionFilter" class="form-label">Version</label>
+                <select class="form-select" id="versionFilter">
+                    <option value="">All Versions</option>
+                    <!-- Versions will be loaded dynamically -->
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="searchFlows" class="form-label">Search</label>
+                <input type="text" class="form-control" id="searchFlows" placeholder="Search flows...">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <button class="btn btn-outline-primary w-100" id="filterFlows">
+                    <i class="fas fa-filter me-1"></i>
+                    Filter
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Flows Table -->
+<div class="card">
+    <div class="card-header">
+        <h6 class="card-title mb-0">
+            <i class="fas fa-list me-2"></i>
+            All Flows
+            {% if page_obj.paginator.count %}
+                <span class="badge bg-primary ms-2">{{ page_obj.paginator.count }}</span>
+            {% endif %}
+        </h6>
+    </div>
+    <div class="card-body p-0">
+        {% if page_obj %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Flow Name</th>
+                            <th>System</th>
+                            <th>Components</th>
+                            <th>Connections</th>
+                            <th>Status</th>
+                            <th>Last Updated</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for flow_info in page_obj %}
+                            <tr>
+                                <td>
+                                    <div>
+                                        <strong>{{ flow_info.flow.name }}</strong>
+                                        {% if flow_info.flow.system_purpose %}
+                                            <br><small class="text-muted">{{ flow_info.flow.system_purpose|truncatechars:60 }}</small>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if flow_info.flow.system_name %}
+                                        <span class="badge bg-info">{{ flow_info.flow.system_name }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">
+                                        {{ flow_info.comp_count }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">
+                                        {{ flow_info.conn_count }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if flow_info.flow.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ flow_info.flow.updated_at|date:"M d, Y" }}
+                                        <br>{{ flow_info.flow.updated_at|time:"H:i" }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'frontend:flow_detail' flow_info.flow.pk %}" 
+                                           class="btn btn-outline-primary" title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'frontend:flow_designer_edit' flow_info.flow.pk %}" 
+                                           class="btn btn-outline-secondary" title="Edit Flow">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{% url 'frontend:yaml_export' flow_info.flow.pk %}" 
+                                           class="btn btn-outline-info" title="Export">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-outline-danger" 
+                                                title="Delete Flow" onclick="deleteFlow('{{ flow_info.flow.pk }}', '{{ flow_info.flow.name }}')">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+                <div class="card-footer">
+                    <nav aria-label="Flow pagination">
+                        <ul class="pagination pagination-sm mb-0 justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.active %}&active={{ request.GET.active }}{% endif %}">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.active %}&active={{ request.GET.active }}{% endif %}">
+                                        <i class="fas fa-angle-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.active %}&active={{ request.GET.active }}{% endif %}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.active %}&active={{ request.GET.active }}{% endif %}">
+                                        <i class="fas fa-angle-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.active %}&active={{ request.GET.active }}{% endif %}">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-project-diagram fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">No flows found</h5>
+                <p class="text-muted">Get started by creating your first flow or importing existing configurations.</p>
+                <div class="mt-3">
+                    <a href="{% url 'frontend:flow_designer' %}" class="btn btn-primary me-2">
+                        <i class="fas fa-plus me-1"></i>
+                        Create Flow
+                    </a>
+                    <a href="{% url 'frontend:yaml_import' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-upload me-1"></i>
+                        Import Flow
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteFlowModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Delete Flow</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the flow "<span id="flowNameToDelete"></span>"?</p>
+                <p class="text-danger"><strong>This action cannot be undone.</strong></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteFlowForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Delete Flow</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Flows Grid -->
+<div class="row" id="flowsContainer">
+    <div class="col-12">
+        <div class="text-center py-5">
+            <i class="fas fa-project-diagram fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No flows found</h5>
+            <p class="text-muted">Start by creating your first application flow.</p>
+            <a href="/flows/designer/" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>
+                Create Flow
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Flow Statistics -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-chart-line me-2"></i>
+                    Flow Statistics
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-2">
+                        <div class="border-end">
+                            <h3 class="text-primary mb-0" id="totalFlows">0</h3>
+                            <small class="text-muted">Total Flows</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="border-end">
+                            <h3 class="text-success mb-0" id="activeFlows">0</h3>
+                            <small class="text-muted">Active</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="border-end">
+                            <h3 class="text-info mb-0" id="totalComponents">0</h3>
+                            <small class="text-muted">Components</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="border-end">
+                            <h3 class="text-warning mb-0" id="totalConnections">0</h3>
+                            <small class="text-muted">Connections</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="border-end">
+                            <h3 class="text-secondary mb-0" id="avgComplexity">0</h3>
+                            <small class="text-muted">Avg Complexity</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <h3 class="text-dark mb-0" id="latestVersion">-</h3>
+                        <small class="text-muted">Latest Version</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Flow Details Modal -->
+<div class="modal fade" id="flowModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-project-diagram me-2"></i>
+                    Flow Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="flowModalBody">
+                <!-- Flow details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="editFlowBtn">
+                    <i class="fas fa-edit me-1"></i>
+                    Edit Flow
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal fade" id="exportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-download me-2"></i>
+                    Export Flow
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="exportFormat" class="form-label">Export Format</label>
+                    <select class="form-select" id="exportFormat">
+                        <option value="yaml">YAML</option>
+                        <option value="json">JSON</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="includeInactive">
+                        <label class="form-check-label" for="includeInactive">
+                            Include inactive components
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="downloadFlow">
+                    <i class="fas fa-download me-1"></i>
+                    Download
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let flows = [];
+    let currentFlowId = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadFlows();
+        
+        // Event listeners
+        document.getElementById('filterFlows').addEventListener('click', filterFlows);
+        document.getElementById('searchFlows').addEventListener('keyup', filterFlows);
+        document.getElementById('downloadFlow').addEventListener('click', downloadFlow);
+    });
+
+    function loadFlows() {
+        fetch('/api/v1/flows/')
+            .then(response => response.json())
+            .then(data => {
+                flows = data.results || data;
+                displayFlows();
+                updateStatistics();
+                populateVersionFilter();
+            })
+            .catch(error => console.error('Error loading flows:', error));
+    }
+
+    function displayFlows() {
+        const container = document.getElementById('flowsContainer');
+        
+        if (flows.length === 0) {
+            container.innerHTML = `
+                <div class="col-12">
+                    <div class="text-center py-5">
+                        <i class="fas fa-project-diagram fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No flows found</h5>
+                        <p class="text-muted">Start by creating your first application flow.</p>
+                        <a href="/flows/designer/" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i>
+                            Create Flow
+                        </a>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        flows.forEach(flow => {
+            const statusBadge = flow.is_active ? 
+                '<span class="badge bg-success">Active</span>' : 
+                '<span class="badge bg-secondary">Inactive</span>';
+            
+            const componentCount = flow.component_count || 0;
+            const connectionCount = flow.connection_count || 0;
+            const complexity = componentCount + connectionCount;
+            
+            html += `
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="card-title mb-0">${flow.name}</h6>
+                                ${statusBadge}
+                            </div>
+                            <p class="card-text text-muted small">${flow.description || 'No description'}</p>
+                            
+                            <div class="row text-center mb-3">
+                                <div class="col-4">
+                                    <small class="text-muted d-block">Components</small>
+                                    <strong class="text-primary">${componentCount}</strong>
+                                </div>
+                                <div class="col-4">
+                                    <small class="text-muted d-block">Connections</small>
+                                    <strong class="text-info">${connectionCount}</strong>
+                                </div>
+                                <div class="col-4">
+                                    <small class="text-muted d-block">Version</small>
+                                    <strong class="text-secondary">${flow.version || '1.0'}</strong>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar me-1"></i>
+                                    ${new Date(flow.created_at).toLocaleDateString()}
+                                </small>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary" onclick="viewFlow('${flow.id}')" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="btn btn-outline-success" onclick="openFlowDesigner('${flow.id}')" title="Edit in Designer">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-outline-info" onclick="exportFlow('${flow.id}')" title="Export">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                    <button class="btn btn-outline-warning" onclick="analyzeFlow('${flow.id}')" title="Impact Analysis">
+                                        <i class="fas fa-search"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger" onclick="deleteFlow('${flow.id}')" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+
+    function updateStatistics() {
+        const totalFlows = flows.length;
+        const activeFlows = flows.filter(f => f.is_active).length;
+        const totalComponents = flows.reduce((sum, f) => sum + (f.components?.length || 0), 0);
+        const totalConnections = flows.reduce((sum, f) => sum + (f.connections?.length || 0), 0);
+        const avgComplexity = totalFlows > 0 ? ((totalComponents + totalConnections) / totalFlows).toFixed(1) : 0;
+        
+        // Find latest version
+        const versions = flows.map(f => f.version || '1.0').sort((a, b) => b.localeCompare(a));
+        const latestVersion = versions.length > 0 ? versions[0] : '-';
+
+        document.getElementById('totalFlows').textContent = totalFlows;
+        document.getElementById('activeFlows').textContent = activeFlows;
+        document.getElementById('totalComponents').textContent = totalComponents;
+        document.getElementById('totalConnections').textContent = totalConnections;
+        document.getElementById('avgComplexity').textContent = avgComplexity;
+        document.getElementById('latestVersion').textContent = latestVersion;
+    }
+
+    function populateVersionFilter() {
+        const versionFilter = document.getElementById('versionFilter');
+        const versions = [...new Set(flows.map(f => f.version || '1.0'))].sort();
+        
+        versionFilter.innerHTML = '<option value="">All Versions</option>';
+        versions.forEach(version => {
+            versionFilter.innerHTML += `<option value="${version}">${version}</option>`;
+        });
+    }
+
+    function filterFlows() {
+        const statusFilter = document.getElementById('statusFilter').value;
+        const versionFilter = document.getElementById('versionFilter').value;
+        const searchTerm = document.getElementById('searchFlows').value.toLowerCase();
+        
+        let filteredFlows = flows;
+        
+        if (statusFilter) {
+            filteredFlows = filteredFlows.filter(f => 
+                statusFilter === 'active' ? f.is_active : !f.is_active
+            );
+        }
+        
+        if (versionFilter) {
+            filteredFlows = filteredFlows.filter(f => (f.version || '1.0') === versionFilter);
+        }
+        
+        if (searchTerm) {
+            filteredFlows = filteredFlows.filter(f => 
+                f.name.toLowerCase().includes(searchTerm) || 
+                (f.description && f.description.toLowerCase().includes(searchTerm))
+            );
+        }
+        
+        // Temporarily replace flows array for display
+        const originalFlows = flows;
+        flows = filteredFlows;
+        displayFlows();
+        flows = originalFlows;
+    }
+
+    function viewFlow(id) {
+        currentFlowId = id;
+        const flow = flows.find(f => f.id === id);
+        
+        if (!flow) return;
+        
+        const modalBody = document.getElementById('flowModalBody');
+        modalBody.innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Basic Information</h6>
+                    <table class="table table-sm">
+                        <tr><td><strong>Name:</strong></td><td>${flow.name}</td></tr>
+                        <tr><td><strong>Version:</strong></td><td>${flow.version || '1.0'}</td></tr>
+                        <tr><td><strong>Status:</strong></td><td>${flow.is_active ? 'Active' : 'Inactive'}</td></tr>
+                        <tr><td><strong>Created:</strong></td><td>${new Date(flow.created_at).toLocaleString()}</td></tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Statistics</h6>
+                    <table class="table table-sm">
+                        <tr><td><strong>Components:</strong></td><td>${flow.components?.length || 0}</td></tr>
+                        <tr><td><strong>Connections:</strong></td><td>${flow.connections?.length || 0}</td></tr>
+                        <tr><td><strong>Complexity:</strong></td><td>${(flow.components?.length || 0) + (flow.connections?.length || 0)}</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-12">
+                    <h6>Description</h6>
+                    <p>${flow.description || 'No description provided'}</p>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('editFlowBtn').onclick = () => openFlowDesigner(id);
+        
+        new bootstrap.Modal(document.getElementById('flowModal')).show();
+    }
+
+    function openFlowDesigner(id) {
+        window.location.href = `/flows/designer/${id}/`;
+    }
+
+    function exportFlow(id) {
+        currentFlowId = id;
+        new bootstrap.Modal(document.getElementById('exportModal')).show();
+    }
+
+    function downloadFlow() {
+        const format = document.getElementById('exportFormat').value;
+        const includeInactive = document.getElementById('includeInactive').checked;
+        
+        const url = `/api/v1/flows/${currentFlowId}/export/?format=${format}&include_inactive=${includeInactive}`;
+        
+        fetch(url)
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `flow_${currentFlowId}.${format}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            })
+            .catch(error => console.error('Error downloading flow:', error));
+        
+        bootstrap.Modal.getInstance(document.getElementById('exportModal')).hide();
+    }
+
+    function analyzeFlow(id) {
+        window.location.href = `/impact-analysis/?flow=${id}`;
+    }
+
+    function deleteFlow(id) {
+        const flow = flows.find(f => f.id === id);
+        if (!flow) return;
+        
+        if (confirm(`Are you sure you want to delete the flow "${flow.name}"? This action cannot be undone.`)) {
+            fetch(`/api/v1/flows/${id}/`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(() => {
+                loadFlows();
+                alert('Flow deleted successfully');
+            })
+            .catch(error => {
+                console.error('Error deleting flow:', error);
+                alert('Error deleting flow');
+            });
+        }
+    }
+</script>
+<script>
+    function deleteFlow(flowId, flowName) {
+        document.getElementById('flowNameToDelete').textContent = flowName;
+        document.getElementById('deleteFlowForm').action = `/flows/${flowId}/delete/`;
+        
+        const modal = new bootstrap.Modal(document.getElementById('deleteFlowModal'));
+        modal.show();
+    }
+    </script>
+{% endblock %}
+

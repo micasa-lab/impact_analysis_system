@@ -1,0 +1,327 @@
+{% extends 'frontend/base.html' %}
+
+{% block title %}{{ flow.name }} - Flow Details{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'frontend:flow_list' %}">Flows</a></li>
+    <li class="breadcrumb-item active">{{ flow.name }}</li>
+{% endblock %}
+
+{% block content %}
+<!-- Flow Header -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1 class="h2 mb-2">
+            <i class="fas fa-project-diagram me-2 text-primary"></i>
+            {{ flow.name }}
+        </h1>
+        {% if flow.system_name %}
+            <p class="text-muted mb-1"><strong>System:</strong> {{ flow.system_name }}</p>
+        {% endif %}
+        {% if flow.system_purpose %}
+            <p class="text-muted">{{ flow.system_purpose }}</p>
+        {% endif %}
+    </div>
+    <div class="col-md-4 text-end">
+        <div class="btn-group">
+            <a href="{% url 'frontend:flow_designer_edit' flow.pk %}" class="btn btn-primary">
+                <i class="fas fa-edit me-1"></i>
+                Edit Flow
+            </a>
+            <a href="{% url 'frontend:yaml_export' flow.pk %}" class="btn btn-outline-secondary">
+                <i class="fas fa-download me-1"></i>
+                Export
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Flow Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-primary">{{ stats.total_components }}</h3>
+                <p class="card-text">Components</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-success">{{ stats.active_components }}</h3>
+                <p class="card-text">Active</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-info">{{ stats.total_connections }}</h3>
+                <p class="card-text">Connections</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-warning">{{ impact_analyses.count }}</h3>
+                <p class="card-text">Analyses</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Flow Information -->
+<div class="row">
+    <div class="col-md-8">
+        <!-- Components Tab -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#components" role="tab">
+                            <i class="fas fa-cubes me-1"></i>
+                            Components ({{ stats.total_components }})
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#connections" role="tab">
+                            <i class="fas fa-link me-1"></i>
+                            Connections ({{ stats.total_connections }})
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#analyses" role="tab">
+                            <i class="fas fa-chart-line me-1"></i>
+                            Impact Analyses
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="tab-content">
+                    <!-- Components Tab -->
+                    <div class="tab-pane fade show active" id="components" role="tabpanel">
+                        {% if flow.flow_components %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Component</th>
+                                            <th>Type</th>
+                                            <th>Business Function</th>
+                                            <th>Owned By</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for flow_component in flow.flow_components %}
+                                            <tr>
+                                                <td>
+                                                    <strong>{{ flow_component.component.name }}</strong>
+                                                    {% if flow_component.component.description %}
+                                                        <br><small class="text-muted">{{ flow_component.component.description|truncatechars:60 }}</small>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-secondary">{{ flow_component.component.get_component_type_display }}</span>
+                                                </td>
+                                                <td>{{ flow_component.component.business_function|truncatechars:50|default:"-" }}</td>
+                                                <td>{{ flow_component.component.owned_by|default:"-" }}</td>
+                                                <td>
+                                                    {% if flow_component.component.is_active %}
+                                                        <span class="badge bg-success">Active</span>
+                                                    {% else %}
+                                                        <span class="badge bg-danger">Inactive</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <a href="{% url 'frontend:component_detail' flow_component.component.pk %}" 
+                                                       class="btn btn-sm btn-outline-primary">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-cubes fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No components in this flow yet.</p>
+                                <a href="{% url 'frontend:flow_designer_edit' flow.pk %}" class="btn btn-primary">
+                                    Add Components
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Connections Tab -->
+                    <div class="tab-pane fade" id="connections" role="tabpanel">
+                        {% if connections %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Source</th>
+                                            <th>Target</th>
+                                            <th>Type</th>
+                                            <th>Flow Type</th>
+                                            <th>Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for connection in connections %}
+                                            <tr>
+                                                <td>
+                                                    <i class="fas fa-cube me-1 text-primary"></i>
+                                                    {{ connection.source_component.name }}
+                                                </td>
+                                                <td>
+                                                    <i class="fas fa-cube me-1 text-success"></i>
+                                                    {{ connection.target_component.name }}
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-info">{{ connection.get_connection_type_display }}</span>
+                                                </td>
+                                                <td>
+                                                    {% if connection.flow_type %}
+                                                        <span class="badge bg-warning">{{ connection.flow_type }}</span>
+                                                    {% else %}
+                                                        <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ connection.description|truncatechars:60|default:"-" }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-link fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No connections defined for this flow.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Impact Analyses Tab -->
+                    <div class="tab-pane fade" id="analyses" role="tabpanel">
+                        {% if impact_analyses %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Target Component</th>
+                                            <th>Severity</th>
+                                            <th>Created</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for analysis in impact_analyses %}
+                                            <tr>
+                                                <td>{{ analysis.target_component.name }}</td>
+                                                <td>
+                                                    <span class="badge bg-{% if analysis.severity == 'critical' %}danger{% elif analysis.severity == 'high' %}warning{% elif analysis.severity == 'medium' %}info{% else %}secondary{% endif %}">
+                                                        {{ analysis.get_severity_display }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ analysis.created_at|date:"M d, Y H:i" }}</td>
+                                                <td>
+                                                    <a href="{% url 'frontend:impact_analysis_detail' analysis.pk %}" 
+                                                       class="btn btn-sm btn-outline-primary">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No impact analyses performed yet.</p>
+                                <a href="{% url 'frontend:impact_analysis' %}" class="btn btn-primary">
+                                    Start Analysis
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Flow Metadata Sidebar -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Flow Information
+                </h6>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-4">Name:</dt>
+                    <dd class="col-sm-8">{{ flow.name }}</dd>
+                    
+                    {% if flow.system_name %}
+                    <dt class="col-sm-4">System:</dt>
+                    <dd class="col-sm-8">{{ flow.system_name }}</dd>
+                    {% endif %}
+                    
+                    <dt class="col-sm-4">Version:</dt>
+                    <dd class="col-sm-8">{{ flow.version|default:"1.0" }}</dd>
+                    
+                    <dt class="col-sm-4">Status:</dt>
+                    <dd class="col-sm-8">
+                        {% if flow.is_active %}
+                            <span class="badge bg-success">Active</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inactive</span>
+                        {% endif %}
+                    </dd>
+                    
+                    <dt class="col-sm-4">Created:</dt>
+                    <dd class="col-sm-8">{{ flow.created_at|date:"M d, Y" }}</dd>
+                    
+                    <dt class="col-sm-4">Updated:</dt>
+                    <dd class="col-sm-8">{{ flow.updated_at|date:"M d, Y" }}</dd>
+                </dl>
+                
+                {% if flow.system_purpose %}
+                <hr>
+                <h6>Purpose:</h6>
+                <p class="small">{{ flow.system_purpose }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Component Types Breakdown -->
+        {% if stats.component_types %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    Component Types
+                </h6>
+            </div>
+            <div class="card-body">
+                {% for type_info in stats.component_types %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small">{{ type_info.component__component_type|title }}</span>
+                        <span class="badge bg-secondary">{{ type_info.count }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

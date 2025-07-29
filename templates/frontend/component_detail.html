@@ -1,0 +1,379 @@
+{% extends 'frontend/base.html' %}
+
+{% block title %}{{ component.name }} - Component Details{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{% url 'frontend:component_list' %}">Components</a></li>
+    <li class="breadcrumb-item active">{{ component.name }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1 class="h2 mb-0">
+            <i class="fas fa-cube me-2 text-primary"></i>
+            {{ component.name }}
+        </h1>
+        <p class="text-muted">{{ component.get_component_type_display }} Component</p>
+    </div>
+    <div class="col-md-4 text-end">
+        <div class="btn-group">
+            <a href="{% url 'frontend:component_edit' component.pk %}" class="btn btn-outline-secondary">
+                <i class="fas fa-edit me-1"></i>
+                Edit
+            </a>
+            <button type="button" class="btn btn-outline-danger" onclick="deleteComponent('{{ component.pk }}')">
+                <i class="fas fa-trash me-1"></i>
+                Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Component Information -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Component Information
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-4">Name:</dt>
+                            <dd class="col-sm-8">{{ component.name }}</dd>
+                            
+                            <dt class="col-sm-4">Type:</dt>
+                            <dd class="col-sm-8">
+                                <span class="badge bg-primary">{{ component.get_component_type_display }}</span>
+                            </dd>
+                            
+                            <dt class="col-sm-4">Status:</dt>
+                            <dd class="col-sm-8">
+                                {% if component.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </dd>
+                            
+                            <dt class="col-sm-4">Owner:</dt>
+                            <dd class="col-sm-8">{{ component.owned_by|default:"Not specified" }}</dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-4">Created:</dt>
+                            <dd class="col-sm-8">{{ component.created_at|date:"M d, Y H:i" }}</dd>
+                            
+                            <dt class="col-sm-4">Updated:</dt>
+                            <dd class="col-sm-8">{{ component.updated_at|date:"M d, Y H:i" }}</dd>
+                            
+                            <dt class="col-sm-4">Created By:</dt>
+                            <dd class="col-sm-8">{{ component.created_by|default:"System" }}</dd>
+                        </dl>
+                    </div>
+                </div>
+                
+                {% if component.description %}
+                <div class="mt-3">
+                    <h6>Description:</h6>
+                    <p class="text-muted">{{ component.description }}</p>
+                </div>
+                {% endif %}
+                
+                {% if component.business_function %}
+                <div class="mt-3">
+                    <h6>Business Function:</h6>
+                    <p class="text-muted">{{ component.business_function }}</p>
+                </div>
+                {% endif %}
+                
+                {% if component.technical_details %}
+                <div class="mt-3">
+                    <h6>Technical Details:</h6>
+                    <p class="text-muted">{{ component.technical_details }}</p>
+                </div>
+                {% endif %}
+                
+                {% if component.dependencies %}
+                <div class="mt-3">
+                    <h6>Dependencies:</h6>
+                    <p class="text-muted">{{ component.dependencies }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Statistics Sidebar -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Statistics
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span>Flows</span>
+                    <span class="badge bg-primary">{{ stats.total_flows }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span>Runbooks</span>
+                    <span class="badge bg-secondary">{{ stats.total_runbooks }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span>Impact Analyses</span>
+                    <span class="badge bg-warning">{{ stats.total_analyses }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span>Connections</span>
+                    <span class="badge bg-info">{{ stats.total_connections }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">Incoming</small>
+                    <small class="badge bg-outline-info">{{ stats.incoming_connections }}</small>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">Outgoing</small>
+                    <small class="badge bg-outline-info">{{ stats.outgoing_connections }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Flows Section -->
+{% if flows %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h6 class="card-title mb-0">
+            <i class="fas fa-project-diagram me-2"></i>
+            Flows ({{ flows.count }})
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% for flow in flows %}
+            <div class="col-md-6 mb-3">
+                <div class="card border">
+                    <div class="card-body">
+                        <h6 class="card-title">
+                            <a href="{% url 'frontend:flow_detail' flow.pk %}" class="text-decoration-none">
+                                {{ flow.name }}
+                            </a>
+                        </h6>
+                        {% if flow.system_name %}
+                        <p class="card-text small text-muted">System: {{ flow.system_name }}</p>
+                        {% endif %}
+                        {% if flow.system_purpose %}
+                        <p class="card-text small">{{ flow.system_purpose|truncatewords:15 }}</p>
+                        {% endif %}
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">{{ flow.updated_at|date:"M d, Y" }}</small>
+                            <span class="badge bg-{{ flow.is_active|yesno:'success,secondary' }}">
+                                {{ flow.is_active|yesno:'Active,Inactive' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Connections Section -->
+{% if connections_as_source or connections_as_target %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h6 class="card-title mb-0">
+            <i class="fas fa-link me-2"></i>
+            Connections
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <!-- Outgoing Connections -->
+            {% if connections_as_source %}
+            <div class="col-md-6">
+                <h6 class="text-success">
+                    <i class="fas fa-arrow-right me-1"></i>
+                    Outgoing ({{ connections_as_source.count }})
+                </h6>
+                <div class="list-group list-group-flush">
+                    {% for connection in connections_as_source %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ connection.target_component.name }}</strong>
+                            <br>
+                            <small class="text-muted">{{ connection.get_connection_type_display }}</small>
+                        </div>
+                        <span class="badge bg-primary">{{ connection.target_component.get_component_type_display }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Incoming Connections -->
+            {% if connections_as_target %}
+            <div class="col-md-6">
+                <h6 class="text-info">
+                    <i class="fas fa-arrow-left me-1"></i>
+                    Incoming ({{ connections_as_target.count }})
+                </h6>
+                <div class="list-group list-group-flush">
+                    {% for connection in connections_as_target %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ connection.source_component.name }}</strong>
+                            <br>
+                            <small class="text-muted">{{ connection.get_connection_type_display }}</small>
+                        </div>
+                        <span class="badge bg-secondary">{{ connection.source_component.get_component_type_display }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Impact Analyses -->
+{% if impact_analyses %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h6 class="card-title mb-0">
+            <i class="fas fa-chart-line me-2"></i>
+            Recent Impact Analyses ({{ impact_analyses.count }})
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Flow</th>
+                        <th>Severity</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for analysis in impact_analyses %}
+                    <tr>
+                        <td>{{ analysis.flow.name }}</td>
+                        <td>
+                            <span class="badge bg-{% if analysis.severity == 'critical' %}danger{% elif analysis.severity == 'high' %}warning{% elif analysis.severity == 'medium' %}info{% else %}secondary{% endif %}">
+                                {{ analysis.get_severity_display }}
+                            </span>
+                        </td>
+                        <td>{{ analysis.created_at|date:"M d, Y H:i" }}</td>
+                        <td>
+                            <a href="{% url 'frontend:impact_analysis_detail' analysis.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Runbooks Section -->
+{% if runbooks %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h6 class="card-title mb-0">
+            <i class="fas fa-book me-2"></i>
+            Runbooks ({{ runbooks.count }})
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% for runbook in runbooks %}
+            <div class="col-md-6 mb-3">
+                <div class="card border">
+                    <div class="card-body">
+                        <h6 class="card-title">{{ runbook.title }}</h6>
+                        {% if runbook.description %}
+                        <p class="card-text">{{ runbook.description|truncatewords:20 }}</p>
+                        {% endif %}
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">{{ runbook.updated_at|date:"M d, Y" }}</small>
+                            <a href="{% url 'frontend:runbook_detail' runbook.pk %}" class="btn btn-sm btn-outline-primary">
+                                View
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the component <strong>{{ component.name }}</strong>?</p>
+                <p class="text-danger"><small>This action cannot be undone and may affect related flows and analyses.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function deleteComponent(componentId) {
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+    
+    // Store component ID for deletion
+    window.componentToDelete = componentId;
+}
+
+function confirmDelete() {
+    if (window.componentToDelete) {
+        // Create a form and submit it
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/components/${window.componentToDelete}/delete/`;
+        
+        // Add CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

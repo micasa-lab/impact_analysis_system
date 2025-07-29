@@ -1,0 +1,348 @@
+{% extends 'frontend/base.html' %}
+
+{% block title %}Dashboard - Impact Analysis System{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item active">Dashboard</li>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="h2 mb-0">
+            <i class="fas fa-tachometer-alt me-2 text-primary"></i>
+            Dashboard
+        </h1>
+        <p class="text-muted">System overview and statistics</p>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <i class="fas fa-cubes fa-2x mb-2"></i>
+                <h3 class="mb-1">{{ stats.components.total }}</h3>
+                <p class="mb-0">Total Components</p>
+                <small class="opacity-75">{{ stats.components.active }} active</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card stats-card success">
+            <div class="card-body text-center">
+                <i class="fas fa-book fa-2x mb-2"></i>
+                <h3 class="mb-1">{{ stats.runbooks.total }}</h3>
+                <p class="mb-0">Total Runbooks</p>
+                <small class="opacity-75">{{ stats.runbooks.active }} active</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card stats-card warning">
+            <div class="card-body text-center">
+                <i class="fas fa-sitemap fa-2x mb-2"></i>
+                <h3 class="mb-1">{{ stats.flows.total }}</h3>
+                <p class="mb-0">Total Flows</p>
+                <small class="opacity-75">{{ stats.flows.active }} active</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card stats-card danger">
+            <div class="card-body text-center">
+                <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                <h3 class="mb-1">{{ stats.impact_analyses.total }}</h3>
+                <p class="mb-0">Impact Analyses</p>
+                <small class="opacity-75">Total performed</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    Components by Type
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="componentTypeChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Impact Analysis by Severity
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="severityChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activities -->
+<div class="row">
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-clock me-2"></i>
+                    Recent Components
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if recent_components %}
+                    <div class="list-group list-group-flush">
+                        {% for component in recent_components %}
+                            <div class="list-group-item border-0 px-0">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            <a href="{% url 'frontend:component_detail' component.pk %}" class="text-decoration-none">
+                                                {{ component.name }}
+                                            </a>
+                                        </h6>
+                                        <p class="mb-1 text-muted small">{{ component.business_function|truncatechars:50 }}</p>
+                                        <small class="text-muted">{{ component.created_at|timesince }} ago</small>
+                                    </div>
+                                    <span class="badge bg-primary">{{ component.component_type }}</span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center py-3">No components yet</p>
+                {% endif %}
+                
+                <div class="text-center mt-3">
+                    <a href="{% url 'frontend:component_list' %}" class="btn btn-outline-primary btn-sm">
+                        View All Components
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-sitemap me-2"></i>
+                    Recent Flows
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if recent_flows %}
+                    <div class="list-group list-group-flush">
+                        {% for flow in recent_flows %}
+                            <div class="list-group-item border-0 px-0">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            <a href="{% url 'frontend:flow_detail' flow.pk %}" class="text-decoration-none">
+                                                {{ flow.name }}
+                                            </a>
+                                        </h6>
+                                        <p class="mb-1 text-muted small">{{ flow.description|truncatechars:50 }}</p>
+                                        <small class="text-muted">{{ flow.created_at|timesince }} ago</small>
+                                    </div>
+                                    <span class="badge bg-success">v{{ flow.version }}</span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center py-3">No flows yet</p>
+                {% endif %}
+                
+                <div class="text-center mt-3">
+                    <a href="{% url 'frontend:flow_list' %}" class="btn btn-outline-success btn-sm">
+                        View All Flows
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Recent Analyses
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if recent_analyses %}
+                    <div class="list-group list-group-flush">
+                        {% for analysis in recent_analyses %}
+                            <div class="list-group-item border-0 px-0">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">{{ analysis.affected_component.name }}</h6>
+                                        <p class="mb-1 text-muted small">{{ analysis.flow.name }}</p>
+                                        <small class="text-muted">{{ analysis.created_at|timesince }} ago</small>
+                                    </div>
+                                    <span class="badge severity-{{ analysis.severity }}">
+                                        {{ analysis.get_severity_display }}
+                                    </span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center py-3">No analyses yet</p>
+                {% endif %}
+                
+                <div class="text-center mt-3">
+                    <a href="{% url 'frontend:impact_analysis' %}" class="btn btn-outline-warning btn-sm">
+                        View All Analyses
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-bolt me-2"></i>
+                    Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-2">
+                        <a href="{% url 'frontend:component_list' %}" class="btn btn-primary w-100">
+                            <i class="fas fa-plus me-2"></i>
+                            Manage Components
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{% url 'frontend:flow_list' %}" class="btn btn-success w-100">
+                            <i class="fas fa-plus me-2"></i>
+                            Manage Flows
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{% url 'frontend:runbook_list' %}" class="btn btn-info w-100">
+                            <i class="fas fa-plus me-2"></i>
+                            Manage Runbooks
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{% url 'frontend:yaml_import' %}" class="btn btn-warning w-100">
+                            <i class="fas fa-file-import me-2"></i>
+                            Import YAML
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Component Type Chart
+    const componentTypeCtx = document.getElementById('componentTypeChart').getContext('2d');
+    const componentTypeData = {
+        labels: [
+            {% for item in stats.components.by_type %}
+                '{{ item.component_type|capfirst }}'{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        datasets: [{
+            data: [
+                {% for item in stats.components.by_type %}
+                    {{ item.count }}{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ],
+            backgroundColor: [
+                '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#f97316', '#ef4444'
+            ],
+            borderWidth: 0
+        }]
+    };
+
+    new Chart(componentTypeCtx, {
+        type: 'doughnut',
+        data: componentTypeData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Severity Chart
+    const severityCtx = document.getElementById('severityChart').getContext('2d');
+    const severityData = {
+        labels: [
+            {% for item in stats.impact_analyses.by_severity %}
+                '{{ item.severity|capfirst }}'{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        datasets: [{
+            label: 'Count',
+            data: [
+                {% for item in stats.impact_analyses.by_severity %}
+                    {{ item.count }}{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ],
+            backgroundColor: [
+                '#10b981', '#f59e0b', '#f97316', '#ef4444'
+            ],
+            borderWidth: 0
+        }]
+    };
+
+    new Chart(severityCtx, {
+        type: 'bar',
+        data: severityData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}
+

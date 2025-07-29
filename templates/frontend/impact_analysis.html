@@ -1,0 +1,914 @@
+{% extends 'frontend/base.html' %}
+{% load static %}
+
+{% block title %}Impact Analysis - Impact Analysis System{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item active">Impact Analysis</li>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1 class="h2 mb-0">
+            <i class="fas fa-search me-2 text-primary"></i>
+            Impact Analysis
+        </h1>
+        <p class="text-muted">Analyze component dependencies and assess change impacts</p>
+    </div>
+    <div class="col-md-4 text-end">
+        <button class="btn btn-primary" id="newAnalysis">
+            <i class="fas fa-plus me-1"></i>
+            New Analysis
+        </button>
+    </div>
+</div>
+
+<!-- Analysis Configuration -->
+<div class="card mb-4" id="analysisConfig">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-cog me-2"></i>
+            Analysis Configuration
+        </h5>
+    </div>
+    <div class="card-body">
+        <form id="analysisForm">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="flowSelect" class="form-label">Select Flow *</label>
+                    <select class="form-select" id="flowSelect" required>
+                        <option value="">Choose a flow...</option>
+                        <!-- Flows will be loaded dynamically -->
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="componentSelect" class="form-label">Target Component *</label>
+                    <select class="form-select" id="componentSelect" required disabled>
+                        <option value="">Select flow first...</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="analysisType" class="form-label">Analysis Type</label>
+                    <select class="form-select" id="analysisType">
+                        <option value="downstream">Downstream Impact</option>
+                        <option value="upstream">Upstream Dependencies</option>
+                        <option value="bidirectional">Bidirectional Analysis</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="row g-3 mt-3">
+                <div class="col-md-3">
+                    <label for="impactSeverity" class="form-label">Impact Severity</label>
+                    <select class="form-select" id="impactSeverity">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                        <option value="critical">Critical</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="maxDepth" class="form-label">Max Depth</label>
+                    <select class="form-select" id="maxDepth">
+                        <option value="1">1 Level</option>
+                        <option value="2" selected>2 Levels</option>
+                        <option value="3">3 Levels</option>
+                        <option value="unlimited">Unlimited</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="analysisDescription" class="form-label">Description</label>
+                    <input type="text" class="form-control" id="analysisDescription" placeholder="Optional description for this analysis">
+                </div>
+            </div>
+            
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="includeInactive">
+                        <label class="form-check-label" for="includeInactive">
+                            Include inactive components in analysis
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="fas fa-play me-1"></i>
+                        Run Analysis
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="clearForm">
+                        <i class="fas fa-times me-1"></i>
+                        Clear
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Analysis Results -->
+<div class="card mb-4" id="analysisResults" style="display: none;">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-chart-network me-2"></i>
+                Analysis Results
+            </h5>
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-primary" id="exportResults">
+                    <i class="fas fa-download me-1"></i>
+                    Export
+                </button>
+                <button class="btn btn-outline-info" id="visualizeResults">
+                    <i class="fas fa-eye me-1"></i>
+                    Visualize
+                </button>
+                <button class="btn btn-outline-success" id="saveAnalysis">
+                    <i class="fas fa-save me-1"></i>
+                    Save
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <div class="alert alert-info" id="analysisInfo">
+                    <!-- Analysis summary will be displayed here -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-8">
+                <div id="impactVisualization">
+                    <!-- D3.js visualization will be rendered here -->
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">Impact Summary</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="impactSummary">
+                            <!-- Impact summary will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">Affected Components</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="affectedComponents">
+                            <!-- List of affected components -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Analysis History -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-history me-2"></i>
+            Analysis History
+        </h5>
+    </div>
+    <div class="card-body">
+        <div id="analysisHistory">
+            <div class="text-center py-4">
+                <i class="fas fa-clock fa-2x text-muted mb-2"></i>
+                <p class="text-muted">No previous analyses found</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Visualization Modal -->
+<div class="modal fade" id="visualizationModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-project-diagram me-2"></i>
+                    Impact Visualization
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="fullVisualization" style="height: 600px;">
+                    <!-- Full-screen visualization -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="downloadVisualization">
+                    <i class="fas fa-download me-1"></i>
+                    Download Image
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+    let flows = [];
+    let currentFlow = null;
+    let currentAnalysis = null;
+    let analysisHistory = [];
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadFlows();
+        loadAnalysisHistory();
+        
+        // Event listeners
+        document.getElementById('flowSelect').addEventListener('change', onFlowChange);
+        document.getElementById('analysisForm').addEventListener('submit', runAnalysis);
+        document.getElementById('clearForm').addEventListener('click', clearForm);
+        document.getElementById('newAnalysis').addEventListener('click', showAnalysisConfig);
+        document.getElementById('exportResults').addEventListener('click', exportResults);
+        document.getElementById('visualizeResults').addEventListener('click', showVisualization);
+        document.getElementById('saveAnalysis').addEventListener('click', saveAnalysis);
+    });
+
+    function loadFlows() {
+        fetch('/api/v1/flows/')
+            .then(response => response.json())
+            .then(data => {
+                flows = data.results || data;
+                populateFlowSelect();
+            })
+            .catch(error => console.error('Error loading flows:', error));
+    }
+
+    function populateFlowSelect() {
+        const flowSelect = document.getElementById('flowSelect');
+        flowSelect.innerHTML = '<option value="">Choose a flow...</option>';
+        
+        flows.filter(f => f.is_active).forEach(flow => {
+            flowSelect.innerHTML += `<option value="${flow.id}">${flow.name} (v${flow.version || '1.0'})</option>`;
+        });
+    }
+
+    function onFlowChange() {
+        const flowId = document.getElementById('flowSelect').value;
+        const componentSelect = document.getElementById('componentSelect');
+        
+        if (!flowId) {
+            componentSelect.innerHTML = '<option value="">Select flow first...</option>';
+            componentSelect.disabled = true;
+            return;
+        }
+        
+        currentFlow = flows.find(f => f.id === flowId);
+        
+        // Load flow components using the dedicated components endpoint
+        fetch(`/api/v1/flows/${flowId}/components/`)
+            .then(response => response.json())
+            .then(components => {
+                componentSelect.innerHTML = '<option value="">Choose a component...</option>';
+                
+                if (components && components.length > 0) {
+                    components.forEach(flowComponent => {
+                        // Use component details from the flow component
+                        const component = flowComponent.component_details || flowComponent;
+                        const componentId = component.id || flowComponent.component;
+                        const componentName = component.name || flowComponent.component_name;
+                        componentSelect.innerHTML += `<option value="${componentId}">${componentName}</option>`;
+                    });
+                }
+                
+                componentSelect.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error loading flow components:', error);
+                componentSelect.innerHTML = '<option value="">Error loading components</option>';
+                componentSelect.disabled = false;
+            });
+    }
+
+    function runAnalysis(event) {
+        event.preventDefault();
+        
+        const formData = {
+            flow: document.getElementById('flowSelect').value,
+            affected_component: document.getElementById('componentSelect').value,
+            analysis_type: document.getElementById('analysisType').value,
+            severity: document.getElementById('impactSeverity').value,
+            max_depth: document.getElementById('maxDepth').value,
+            description: document.getElementById('analysisDescription').value,
+            include_inactive: document.getElementById('includeInactive').checked
+        };
+        
+        // Show loading state
+        const submitBtn = event.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Running...';
+        submitBtn.disabled = true;
+        
+        fetch('/api/v1/impact-analyses/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error: ' + data.error);
+            } else {
+                currentAnalysis = data;
+                displayAnalysisResults(data);
+                loadAnalysisHistory();
+            }
+        })
+        .catch(error => {
+            console.error('Error running analysis:', error);
+            alert('Error running analysis');
+        })
+        .finally(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        });
+    }
+
+    function displayAnalysisResults(analysis) {
+        const resultsCard = document.getElementById('analysisResults');
+        const analysisInfo = document.getElementById('analysisInfo');
+        const impactSummary = document.getElementById('impactSummary');
+        const affectedComponents = document.getElementById('affectedComponents');
+        
+        // Show results card
+        resultsCard.style.display = 'block';
+        
+        // Display analysis info
+        const componentSelect = document.getElementById('componentSelect');
+        const selectedComponentName = componentSelect.options[componentSelect.selectedIndex]?.text || 'Unknown Component';
+        analysisInfo.innerHTML = `
+            <strong>Analysis Complete:</strong> ${analysis.analysis_type} impact analysis for 
+            <strong>${selectedComponentName}</strong> in flow 
+            <strong>${currentFlow.name}</strong>
+            <br>
+            <small class="text-muted">
+                Severity: ${analysis.severity} | Max Depth: ${analysis.max_depth} | 
+                Completed: ${new Date(analysis.created_at || Date.now()).toLocaleString()}
+            </small>
+        `;
+        
+        // Enhanced impact summary with direct/indirect breakdown
+        const impactCount = analysis.affected_components?.length || 0;
+        const severityDistribution = analysis.severity_distribution || {};
+        const summary = severityDistribution.summary || {};
+        
+        // Debug logging
+        console.log('Analysis data:', analysis);
+        console.log('Impact count:', impactCount);
+        console.log('Severity distribution:', severityDistribution);
+        console.log('Summary:', summary);
+        
+        impactSummary.innerHTML = `
+            <div class="mb-3">
+                <h6 class="text-primary">${impactCount}</h6>
+                <small class="text-muted">Components Affected</small>
+            </div>
+            
+            <!-- Direct vs Indirect Impact Summary -->
+            <div class="mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <span><i class="fas fa-link text-primary"></i> Direct:</span>
+                    <span class="badge bg-primary">${summary.direct_affected || 0}</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span><i class="fas fa-project-diagram text-secondary"></i> Indirect:</span>
+                    <span class="badge bg-secondary">${summary.indirect_affected || 0}</span>
+                </div>
+            </div>
+            
+            <!-- Total Severity Distribution -->
+            <div class="mb-2">
+                <strong class="text-muted">Total Impact:</strong>
+            </div>
+            <div class="mb-2">
+                <div class="d-flex justify-content-between">
+                    <span>Critical:</span>
+                    <span class="badge bg-danger">${severityDistribution.total?.critical || 0}</span>
+                </div>
+            </div>
+            <div class="mb-2">
+                <div class="d-flex justify-content-between">
+                    <span>High:</span>
+                    <span class="badge bg-warning">${severityDistribution.total?.high || 0}</span>
+                </div>
+            </div>
+            <div class="mb-2">
+                <div class="d-flex justify-content-between">
+                    <span>Medium:</span>
+                    <span class="badge bg-info">${severityDistribution.total?.medium || 0}</span>
+                </div>
+            </div>
+            <div class="mb-2">
+                <div class="d-flex justify-content-between">
+                    <span>Low:</span>
+                    <span class="badge bg-success">${severityDistribution.total?.low || 0}</span>
+                </div>
+            </div>
+        `;
+        
+        // Enhanced affected components display with direct/indirect grouping
+        if (analysis.affected_components && analysis.affected_components.length > 0) {
+            const directComponents = analysis.affected_components.filter(c => c.impact_type === 'direct');
+            const indirectComponents = analysis.affected_components.filter(c => c.impact_type === 'indirect');
+            
+            let componentsHtml = '';
+            
+            // Direct impacts section
+            if (directComponents.length > 0) {
+                componentsHtml += `
+                    <div class="mb-3">
+                        <h6 class="text-primary">
+                            <i class="fas fa-link me-1"></i>
+                            Direct Impacts (${directComponents.length})
+                        </h6>
+                        ${renderComponentList(directComponents, 'direct')}
+                    </div>
+                `;
+            }
+            
+            // Indirect impacts section
+            if (indirectComponents.length > 0) {
+                componentsHtml += `
+                    <div class="mb-3">
+                        <h6 class="text-secondary">
+                            <i class="fas fa-project-diagram me-1"></i>
+                            Indirect Impacts (${indirectComponents.length})
+                        </h6>
+                        ${renderComponentList(indirectComponents, 'indirect')}
+                    </div>
+                `;
+            }
+            
+            affectedComponents.innerHTML = componentsHtml;
+        } else {
+            affectedComponents.innerHTML = '<p class="text-muted">No components affected</p>';
+        }
+        
+        // Create enhanced visualization
+        createEnhancedImpactVisualization(analysis);
+        
+        // Scroll to results
+        resultsCard.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    function renderComponentList(components, impactType) {
+        const borderClass = impactType === 'direct' ? 'border-primary' : 'border-secondary';
+        
+        return components.map(comp => {
+            const severityClass = {
+                'critical': 'danger',
+                'high': 'warning',
+                'medium': 'info',
+                'low': 'success'
+            }[comp.severity] || 'secondary';
+            
+            const impactIcon = impactType === 'direct' ? 'fas fa-link' : 'fas fa-project-diagram';
+            const depthBadge = comp.depth > 1 ? `<span class="badge bg-light text-dark ms-1">Depth ${comp.depth}</span>` : '';
+            
+            return `
+                <div class="d-flex justify-content-between align-items-start mb-2 p-2 border rounded ${borderClass}">
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center mb-1">
+                            <i class="${impactIcon} text-${impactType === 'direct' ? 'primary' : 'secondary'} me-2"></i>
+                            <strong>${comp.name}</strong>
+                            ${depthBadge}
+                        </div>
+                        <small class="text-muted d-block">${comp.type}</small>
+                        ${comp.transitive_reason ? `<small class="text-info d-block mt-1"><i class="fas fa-info-circle me-1"></i>${comp.transitive_reason}</small>` : ''}
+                        ${comp.path && comp.path.length > 1 ? `<small class="text-muted d-block mt-1"><i class="fas fa-route me-1"></i>Path: ${comp.path.join(' → ')}</small>` : ''}
+                    </div>
+                    <span class="badge bg-${severityClass}">${comp.severity}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function createEnhancedImpactVisualization(analysis) {
+        const container = document.getElementById('impactVisualization');
+        container.innerHTML = ''; // Clear previous visualization
+        
+        const width = container.offsetWidth;
+        const height = 500; // Increased height for better visualization
+        
+        const svg = d3.select(container)
+            .append('svg')
+            .attr('width', width)
+            .attr('height', height);
+        
+        // Create enhanced network visualization with direct/indirect distinction
+        const nodes = [];
+        const links = [];
+        
+        // Add target component (center node)
+        const targetComponent = currentFlow.components?.find(c => c.id === analysis.affected_component) ||
+                               { id: analysis.affected_component, name: 'Target Component', type: 'unknown' };
+        
+        nodes.push({
+            id: targetComponent.id,
+            name: targetComponent.name,
+            type: targetComponent.type || 'unknown',
+            isTarget: true,
+            severity: 'target',
+            impact_type: 'target',
+            depth: 0
+        });
+        
+        // Add affected components with enhanced properties
+        if (analysis.affected_components) {
+            analysis.affected_components.forEach(comp => {
+                nodes.push({
+                    id: comp.id,
+                    name: comp.name,
+                    type: comp.type,
+                    isTarget: false,
+                    severity: comp.severity,
+                    impact_type: comp.impact_type || 'direct',
+                    depth: comp.depth || 1,
+                    transitive_reason: comp.transitive_reason,
+                    path: comp.path || []
+                });
+                
+                // Create enhanced links with impact chain information
+                links.push({
+                    source: targetComponent.id,
+                    target: comp.id,
+                    severity: comp.severity,
+                    impact_type: comp.impact_type || 'direct',
+                    connection_type: comp.connection_type,
+                    depth: comp.depth || 1
+                });
+            });
+        }
+        
+        // Create force simulation with enhanced positioning
+        const simulation = d3.forceSimulation(nodes)
+            .force('link', d3.forceLink(links).id(d => d.id).distance(d => {
+                // Vary distance based on impact type and depth
+                const baseDistance = d.impact_type === 'direct' ? 120 : 180;
+                return baseDistance + (d.depth * 30);
+            }))
+            .force('charge', d3.forceManyBody().strength(d => {
+                // Target component has stronger repulsion
+                return d.isTarget ? -500 : -200;
+            }))
+            .force('center', d3.forceCenter(width / 2, height / 2))
+            .force('collision', d3.forceCollide().radius(25));
+        
+        // Create enhanced links with different styles for direct/indirect
+        const link = svg.append('g')
+            .selectAll('line')
+            .data(links)
+            .enter().append('line')
+            .attr('stroke', d => {
+                const colors = {
+                    'critical': '#dc3545',
+                    'high': '#fd7e14',
+                    'medium': '#0dcaf0',
+                    'low': '#198754'
+                };
+                return colors[d.severity] || '#6c757d';
+            })
+            .attr('stroke-width', d => d.impact_type === 'direct' ? 3 : 2)
+            .attr('stroke-dasharray', d => d.impact_type === 'indirect' ? '5,5' : 'none')
+            .attr('opacity', d => d.impact_type === 'direct' ? 0.8 : 0.6);
+        
+        // Create enhanced nodes with different styles for direct/indirect
+        const node = svg.append('g')
+            .selectAll('circle')
+            .data(nodes)
+            .enter().append('circle')
+            .attr('r', d => {
+                if (d.isTarget) return 20;
+                return d.impact_type === 'direct' ? 15 : 12;
+            })
+            .attr('fill', d => {
+                if (d.isTarget) return '#0d6efd';
+                const colors = {
+                    'critical': '#dc3545',
+                    'high': '#fd7e14',
+                    'medium': '#0dcaf0',
+                    'low': '#198754'
+                };
+                return colors[d.severity] || '#6c757d';
+            })
+            .attr('stroke', d => {
+                if (d.isTarget) return '#0a58ca';
+                return d.impact_type === 'direct' ? '#ffffff' : '#000000';
+            })
+            .attr('stroke-width', d => {
+                if (d.isTarget) return 3;
+                return d.impact_type === 'direct' ? 2 : 1;
+            })
+            .attr('opacity', d => d.impact_type === 'indirect' ? 0.8 : 1)
+            .call(d3.drag()
+                .on('start', dragstarted)
+                .on('drag', dragged)
+                .on('end', dragended));
+        
+        // Add impact type indicators (icons)
+        const icons = svg.append('g')
+            .selectAll('text')
+            .data(nodes.filter(d => !d.isTarget))
+            .enter().append('text')
+            .attr('text-anchor', 'middle')
+            .attr('dy', 4)
+            .attr('font-family', 'FontAwesome')
+            .attr('font-size', '10px')
+            .attr('fill', 'white')
+            .text(d => d.impact_type === 'direct' ? '\uf0c1' : '\uf542'); // link vs project-diagram icons
+        
+        // Add enhanced labels with impact type information
+        const label = svg.append('g')
+            .selectAll('text')
+            .data(nodes)
+            .enter().append('text')
+            .text(d => {
+                let text = d.name;
+                if (!d.isTarget) {
+                    const typeIndicator = d.impact_type === 'direct' ? '(D)' : '(I)';
+                    text += ` ${typeIndicator}`;
+                    if (d.depth > 1) {
+                        text += ` L${d.depth}`;
+                    }
+                }
+                return text;
+            })
+            .attr('font-size', d => d.isTarget ? '14px' : '11px')
+            .attr('font-weight', d => d.isTarget ? 'bold' : 'normal')
+            .attr('text-anchor', 'middle')
+            .attr('dy', d => d.isTarget ? 35 : 30)
+            .attr('fill', d => d.impact_type === 'indirect' ? '#666' : '#000');
+        
+        // Add tooltips for enhanced information
+        node.append('title')
+            .text(d => {
+                if (d.isTarget) {
+                    return `Target Component: ${d.name}\nType: ${d.type}`;
+                }
+                let tooltip = `${d.name}\nType: ${d.type}\nSeverity: ${d.severity}\nImpact: ${d.impact_type}\nDepth: ${d.depth}`;
+                if (d.transitive_reason) {
+                    tooltip += `\nReason: ${d.transitive_reason}`;
+                }
+                if (d.path && d.path.length > 1) {
+                    tooltip += `\nPath: ${d.path.join(' → ')}`;
+                }
+                return tooltip;
+            });
+        
+        // Add legend for impact types
+        const legend = svg.append('g')
+            .attr('transform', `translate(${width - 150}, 20)`);
+        
+        // Direct impact legend
+        legend.append('circle')
+            .attr('cx', 10)
+            .attr('cy', 10)
+            .attr('r', 8)
+            .attr('fill', '#0dcaf0')
+            .attr('stroke', '#ffffff')
+            .attr('stroke-width', 2);
+        
+        legend.append('text')
+            .attr('x', 25)
+            .attr('y', 15)
+            .attr('font-size', '12px')
+            .text('Direct Impact');
+        
+        // Indirect impact legend
+        legend.append('circle')
+            .attr('cx', 10)
+            .attr('cy', 35)
+            .attr('r', 8)
+            .attr('fill', '#6c757d')
+            .attr('stroke', '#000000')
+            .attr('stroke-width', 1)
+            .attr('opacity', 0.8);
+        
+        legend.append('text')
+            .attr('x', 25)
+            .attr('y', 40)
+            .attr('font-size', '12px')
+            .text('Indirect Impact');
+        
+        // Update positions on simulation tick
+        simulation.on('tick', () => {
+            link
+                .attr('x1', d => d.source.x)
+                .attr('y1', d => d.source.y)
+                .attr('x2', d => d.target.x)
+                .attr('y2', d => d.target.y);
+            
+            node
+                .attr('cx', d => d.x)
+                .attr('cy', d => d.y);
+            
+            icons
+                .attr('x', d => d.x)
+                .attr('y', d => d.y);
+            
+            label
+                .attr('x', d => d.x)
+                .attr('y', d => d.y);
+        });
+        
+        // Enhanced drag functions
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+        
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+        
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+    }
+
+    function loadAnalysisHistory() {
+        fetch('/api/v1/impact-analyses/')
+            .then(response => response.json())
+            .then(data => {
+                analysisHistory = data.results || data;
+                displayAnalysisHistory();
+            })
+            .catch(error => console.error('Error loading analysis history:', error));
+    }
+
+    function displayAnalysisHistory() {
+        const container = document.getElementById('analysisHistory');
+        
+        if (analysisHistory.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-clock fa-2x text-muted mb-2"></i>
+                    <p class="text-muted">No previous analyses found</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '<div class="table-responsive"><table class="table table-hover">';
+        html += `
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Flow</th>
+                    <th>Component</th>
+                    <th>Type</th>
+                    <th>Severity</th>
+                    <th>Affected</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        analysisHistory.slice(0, 10).forEach(analysis => {
+            const severityClass = {
+                'critical': 'danger',
+                'high': 'warning',
+                'medium': 'info',
+                'low': 'success'
+            }[analysis.severity] || 'secondary';
+            
+            html += `
+                <tr>
+                    <td>${new Date(analysis.created_at).toLocaleDateString()}</td>
+                    <td>${analysis.flow_name || 'Unknown'}</td>
+                    <td>${analysis.component_name || 'Unknown'}</td>
+                    <td>${analysis.analysis_type}</td>
+                    <td><span class="badge bg-${severityClass}">${analysis.severity}</span></td>
+                    <td>${analysis.affected_count || 0}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewAnalysis('${analysis.id}')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteAnalysis('${analysis.id}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+    }
+
+    function clearForm() {
+        document.getElementById('analysisForm').reset();
+        document.getElementById('componentSelect').disabled = true;
+        document.getElementById('analysisResults').style.display = 'none';
+        currentFlow = null;
+        currentAnalysis = null;
+    }
+
+    function showAnalysisConfig() {
+        document.getElementById('analysisConfig').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function exportResults() {
+        if (!currentAnalysis) return;
+        
+        const dataStr = JSON.stringify(currentAnalysis, null, 2);
+        const dataBlob = new Blob([dataStr], {type: 'application/json'});
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `impact_analysis_${Date.now()}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function showVisualization() {
+        if (!currentAnalysis) return;
+        
+        new bootstrap.Modal(document.getElementById('visualizationModal')).show();
+        
+        // Create full-screen visualization
+        setTimeout(() => {
+            createFullVisualization(currentAnalysis);
+        }, 300);
+    }
+
+    function createFullVisualization(analysis) {
+        const container = document.getElementById('fullVisualization');
+        container.innerHTML = '';
+        
+        // Create a more detailed visualization for the modal
+        const width = container.offsetWidth;
+        const height = 600;
+        
+        // Similar to createImpactVisualization but larger and more detailed
+        createImpactVisualization(analysis);
+    }
+
+    function saveAnalysis() {
+        if (!currentAnalysis) return;
+        
+        // Analysis is already saved when created, this could trigger additional actions
+        alert('Analysis saved successfully!');
+    }
+
+    function viewAnalysis(id) {
+        // Load and display a specific analysis
+        fetch(`/api/v1/impact-analyses/${id}/`)
+            .then(response => response.json())
+            .then(analysis => {
+                currentAnalysis = analysis;
+                displayAnalysisResults(analysis);
+            })
+            .catch(error => console.error('Error loading analysis:', error));
+    }
+
+    function deleteAnalysis(id) {
+        if (confirm('Are you sure you want to delete this analysis?')) {
+            fetch(`/api/v1/impact-analyses/${id}/`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(() => {
+                loadAnalysisHistory();
+                alert('Analysis deleted successfully');
+            })
+            .catch(error => {
+                console.error('Error deleting analysis:', error);
+                alert('Error deleting analysis');
+            });
+        }
+    }
+</script>
+{% endblock %}
+
