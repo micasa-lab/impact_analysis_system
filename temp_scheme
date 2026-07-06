@@ -1,0 +1,54 @@
+CREATE TABLE error_events (
+    id              <to be decided>,   -- surrogate PK
+    event_id        UUID NOT NULL UNIQUE,
+    eventtype       VARCHAR,
+    eventdomain     VARCHAR,
+    eventcontext    VARCHAR,
+    eventname       VARCHAR,
+    eventsource     VARCHAR,
+    eventproduct    VARCHAR,
+    exceptionstatus VARCHAR,
+    consumerapp     VARCHAR,
+    original_ts     TIMESTAMP,   -- when the error was produced
+    created_at      TIMESTAMP    -- when the row is created in singlestore
+);
+
+CREATE TABLE error_event_messages (
+    id              <to be decided>,   -- surrogate PK
+    event_id        UUID NOT NULL REFERENCES error_events(event_id),
+    topic           VARCHAR NOT NULL,
+    partition       INT NOT NULL,
+    "offset"        BIGINT NOT NULL,
+    payload         <FIX Message / BLOB / JSON>,
+    created_at      TIMESTAMP,
+
+    UNIQUE (topic, partition, "offset")   -- your original identity guarantee, preserved here
+);
+
+CREATE VIEW error_events_view AS
+SELECT
+    em.id                   AS message_id,
+    ev.event_id,
+    em.topic,
+    em.partition,
+    em."offset",
+    em.payload,
+    ev.eventtype,
+    ev.eventdomain,
+    ev.eventcontext,
+    ev.eventname,
+    ev.eventsource,
+    ev.eventproduct,
+    ev.exceptionstatus,
+    ev.consumerapp,
+    ev.original_ts,
+    em.created_at           AS message_created_at,
+    st.status,
+    st.session_id,
+    st.version,
+    st.replayed_at
+FROM error_event_messages em
+JOIN error_events ev
+    ON em.event_id = ev.event_id
+JOIN state_table st
+    ON em.id = st.message_id;      -- or em.event_id = st.event_id, if state is per-event, not per-message
